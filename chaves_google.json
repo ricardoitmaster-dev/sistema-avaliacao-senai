@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "ricardo-it-master",
+  "private_key_id": "edfe0c6c65e31dc131ee2cd2910c95adcf3a7ac0",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDH29Xw5oAm/6A+\n7+P59ock6VPIfiqgM/deTsL8cxSz2bj0W468jRPRgkNNC/e3JWXSS61eAZuVOjWg\nVTNqeQNI2LO7CYCrt4k7zlPDB2UPW2n4/A+O4y7AlwKDuPdVaJXgIsHZV4KDyIYy\nq4v+ZEoISUpfNwIalEuwQNSdi8hNE0P4Sb40Gu9KpcMceYp73Y7MNGi9E4JoZuFB\nPRT4apS1/mpuepznUzPVaOtvePF6O0SxF11oEc6B3K+EC1KSHJoOjR0eWh3lbK0j\nNHj0U6Af/XWPchPsHf6+NqnUTLI8VrRDVOJ4h7SHAVRXtRX9iZRykFe3FWmOo+9h\n2/vKFDgfAgMBAAECggEADf5wbFCUxZDy5U/tFxSyIXKto/q4PQUWe4XT9P2RLrH+\ngixNAhp2D56UMXdhOMjcvc0AY8uEsNNla4dmX7ypxGEusy3MUs8O7rSY5y2D39Tn\nRoCjuD4OXnwpuBPB9xApJQtZ+8AQX+4w/f2cAkvUZosh3X6KXlZm4ahQcC2YRf6F\nDcrhNseiWq4hZhBNR0gta20vK+CD/PlGdJXHegyEKmX9sqeo/mFeVSbCo6gSs3Qa\n/P2jR5vGvq1KycBz2r5j4pWR5RGaNVNMBHQKE5iBt1JAkBrEn4/8CAiL9tHBkVrI\nsXOIgZpQ1txOe0bx0A+96aPdllQEJoryAiLccI1fEQKBgQD2EQE2v04ReMtg/0ye\n/jOMtjM4AJgDL2XPNYKd2ev8epdmSXERH6DZy8zHnQXlYa+cDK7PtDmsN3v2c5sD\nr686Y5CP/M+SZV34PNvc4Fw+TUrPqnXxW4s9cgSWU/LqLvbN/cQEjHYOHG5MAeLB\nG9iUtiCRA7F0eTr22Miy0VnLkQKBgQDP7Ush1uunXOBpyIGwS6mKkuXi3NaMwtTT\nWS0m4NS8wlNFdFtJAAM9u8fx4zOkrsrXai1/HnEjvl4TL8clGREcx661zT8MgPfl\n9de19LYaP3K/8itkm62js4msEb+xbvlXM1txfclq6xUN6ytMaS2HEvddU2SQGtNM\nlY95KukQrwKBgQD1hKwQYztTBZLwOmvKLFtlKBrc4wLKEs3jvUGRnPHw3qUX42mU\nq1lEVywBc/SBFkIxUxpNlkcBRe9DTcA7Il2VxehlMtwt90SWvqqlrZt8coSVxkCe\nTTgWXCClmifDcI7DpFOkMj5NACMxZaRKCC3G3B6McwHp9FhYGp/OhEKzcQKBgGk/\n/qYUepjvRJGHc05gHmQM090wWFJMVRreqyJg8I7T9v7TVVnwbbOUGDPzBDM6X2cH\nUhxktnSXaltf9fhrZeQhl+hjCqUzq0h2V0i9pGhI8bcDyL9WpmCVAv1cxqH0QLbJ\nQmKCf7BlavTus64sF2WmThypl9/yFD9R/ZwiAnP1AoGBALKHr+jBqRAs5x8eLaV6\nu7ZmJyFg8hY4+S/qeSAMktmNPuW0cJrkDfTUZpQDke/WBXQ7R7rk+K3FK/6JPjro\nnWdDMUdxY1QEMojxmKs+oX5TFNqp9L77GLFsDwphI5jeVRRJKevnkqoel04OOTOM\no//2L9OHSajvQFVgMdCR7lVe\n-----END PRIVATE KEY-----\n",
+  "client_email": "banco-recardo@ricardo-it-master.iam.gserviceaccount.com",
+  "client_id": "117055534228133807430",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/banco-recardo%40ricardo-it-master.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
