@@ -29,25 +29,52 @@ ID_PASTA_DRIVE = "1-bHDGxbJDWTzT30zL9S-oj0ktM-c60_R"
 SCOPES = ['https://www.googleapis.com/auth/drive']
 
 def obtener_servico_drive():
-    """Autentica na API do Google Drive usando o JSON puro nos Secrets do Streamlit"""
+    """Autentica na API do Google Drive tratando flexivelmente os formatos do TOML"""
     try:
-        if "gdrive_json" in st.secrets:
-            info_chaves = json.loads(st.secrets["gdrive_json"])
-        else:
-            info_chaves = dict(st.secrets)
-            if "private_key" in info_chaves:
-                info_chaves["private_key"] = info_chaves["private_key"].replace("\\n", "\n")
+        # Tenta carregar o dicionário completo a partir dos Secrets
+        info_chaves = dict(st.secrets)
+        
+        # Caso as chaves estejam aninhadas ou encapsuladas erroneamente
+        if "private_key" not in info_chaves and "conteudo_json_puro" in st.secrets:
+            info_chaves = json.loads(st.secrets["conteudo_json_puro"])
             
+        if "private_key" not in info_chaves:
+            st.error("🚨 Nenhuma credencial válida ('private_key') encontrada nos Secrets do Streamlit.")
+            st.stop()
+
+        # Tratamento cirúrgico e definitivo da Chave Privada (OpenSSL/PEM)
+        p_key = str(info_chaves["private_key"])
+        
+        # Limpa aspas extras que podem vir se o usuário colar com aspas triplas ou duplas por engano
+        p_key = p_key.strip("'\" \n\r")
+        
+        # Corrige quebras de linhas literais escritas como texto "\n"
+        if "\\n" in p_key:
+            p_key = p_key.replace("\\n", "\n")
+            
+        # Reconstrói o cabeçalho/rodapé de forma limpa caso perca formatação
+        linhas = [line.strip() for line in p_key.split("\n") if line.strip()]
+        conteudo_limpo = []
+        
+        for lin in linhas:
+            if "BEGIN PRIVATE KEY" in lin or "END PRIVATE KEY" in lin:
+                continue
+            conteudo_limpo.append(lin.replace(" ", "")) # Remove espaços internos acidentais
+            
+        # Junta tudo no padrão estrito que a biblioteca de criptografia do Google exige
+        chave_formatada = "-----BEGIN PRIVATE KEY-----\n" + "\n".join(conteudo_limpo) + "\n-----END PRIVATE KEY-----\n"
+        info_chaves["private_key"] = chave_formatada
+
         credenciais = service_account.Credentials.from_service_account_info(
             info_chaves, scopes=SCOPES
         )
         return build('drive', 'v3', credentials=credenciais)
     except Exception as e:
-        st.error(f"🚨 Falha Crítica de Autenticação no Google Cloud: {e}")
+        st.error(f"🚨 Falha de Autenticação no Google Cloud: {e}")
         st.stop()
 
 def ler_arquivo_drive(nome_arquivo, dados_padrao):
-    """Busca um arquivo diretamente no Drive ou expõe o erro real de permissão"""
+    """Busca um arquivo diretamente no Drive"""
     try:
         drive_service = obtener_servico_drive()
         query = f"name = '{nome_arquivo}' and '{ID_PASTA_DRIVE}' in parents and trashed = false"
@@ -61,8 +88,7 @@ def ler_arquivo_drive(nome_arquivo, dados_padrao):
         conteudo = drive_service.files().get_media(fileId=file_id).execute()
         return json.loads(conteudo.decode('utf-8'))
     except Exception as e:
-        # Modificado para expor o diagnóstico real na barra lateral
-        st.sidebar.error(f"❌ Erro de Leitura no Google Drive para '{nome_arquivo}': {e}")
+        st.sidebar.warning(f"⚠️ Modo Local Ativo: Sem resposta estável do Google Drive para {nome_arquivo}.")
         return dados_padrao
 
 def salvar_arquivo_drive(nome_arquivo, dados):
@@ -85,7 +111,7 @@ def salvar_arquivo_drive(nome_arquivo, dados):
             drive_service.files().create(body=metadados_arquivo, media_body=media, fields='id').execute()
         st.toast(f"✅ Sincronizado no Google Drive: {nome_arquivo}")
     except Exception as e:
-        st.sidebar.error(f"🚨 Erro de Gravação no Google Drive para '{nome_arquivo}': {e}")
+        st.sidebar.error(f"🚨 Erro de conexão ao salvar {nome_arquivo} na nuvem.")
 
 # ==============================================================================
 # BASE DE DADOS INTEGRADA
@@ -95,7 +121,7 @@ USUARIOS_PADRAO = {
         "nome": "Benedito Ricardo dos Santos", 
         "senha": "Celina2610**", 
         "perfil": "Gestor/Diretor",
-        "email_comunicacao": "ricardo.gestor@fiesp.com.br"
+        "email_comunicacao": "benedito.ricardo@sp.senai.br"
     }
 }
 
