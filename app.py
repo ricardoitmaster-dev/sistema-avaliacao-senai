@@ -31,9 +31,11 @@ SCOPES = ['https://www.googleapis.com/auth/drive']
 
 def obter_servico_drive():
     """Autentica no Google Cloud usando os Secrets do Streamlit ou arquivo local"""
-    if "google_credentials" in st.secrets:
+    # 🌟 CORREÇÃO SÊNIOR: Ajustado para ler o bloco [gdrive] atualizado do Streamlit Secrets
+    if "gdrive" in st.secrets:
         try:
-            info_chaves = json.loads(st.secrets["google_credentials"]["json_data"])
+            # Transforma os segredos do bloco [gdrive] diretamente em um dicionário Python válido
+            info_chaves = dict(st.secrets["gdrive"])
             credenciais = service_account.Credentials.from_service_account_info(
                 info_chaves, scopes=SCOPES
             )
@@ -41,8 +43,9 @@ def obter_servico_drive():
         except Exception as e:
             st.sidebar.error(f"Erro ao ler credenciais dos Secrets: {e}")
 
+    # Fallback caso rode localmente com o arquivo físico .json
     if not os.path.exists(ARQUIVO_CHAVES):
-        st.error(f"❌ Arquivo de credenciais '{ARQUIVO_CHAVES}' não encontrado.")
+        st.error(f"❌ Arquivo de credenciais '{ARQUIVO_CHAVES}' ou Secrets '[gdrive]' não configurados.")
         st.stop()
     
     credenciais = service_account.Credentials.from_service_account_file(
@@ -109,8 +112,6 @@ USUARIOS_PADRAO = {
 if 'usuarios_cadastrados' not in st.session_state:
     st.session_state.usuarios_cadastrados = ler_arquivo_drive("usuarios.json", USUARIOS_PADRAO)
     
-    # IMPORTANTE: Se o arquivo no seu Drive for antigo e ainda estiver com o login antigo,
-    # forçamos a atualização com o seu login corporativo oficial agora.
     if "sn1084433" not in st.session_state.usuarios_cadastrados:
         st.session_state.usuarios_cadastrados.update(USUARIOS_PADRAO)
         salvar_arquivo_drive("usuarios.json", st.session_state.usuarios_cadastrados)
