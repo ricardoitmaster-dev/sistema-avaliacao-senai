@@ -29,19 +29,23 @@ ID_PASTA_DRIVE = "1-bHDGxbJDWTzT30zL9S-oj0ktM-c60_R"
 SCOPES = ['https://www.googleapis.com/auth/drive']
 
 def obtener_servico_drive():
-    """Autentica na API do Google Drive usando os Secrets do Streamlit"""
+    """Autentica na API do Google Drive usando o JSON puro nos Secrets do Streamlit"""
     try:
-        info_chaves = dict(st.secrets)
-        
-        if "private_key" in info_chaves:
-            info_chaves["private_key"] = info_chaves["private_key"].replace("\\n", "\n")
+        # Método definitivo: Lê o JSON como uma string única e converte em dicionário
+        if "gdrive_json" in st.secrets:
+            info_chaves = json.loads(st.secrets["gdrive_json"])
+        else:
+            # Sistema de contingência caso os campos estejam soltos
+            info_chaves = dict(st.secrets)
+            if "private_key" in info_chaves:
+                info_chaves["private_key"] = info_chaves["private_key"].replace("\\n", "\n")
             
         credenciais = service_account.Credentials.from_service_account_info(
             info_chaves, scopes=SCOPES
         )
         return build('drive', 'v3', credentials=credenciais)
     except Exception as e:
-        st.error(f"🚨 Falha de Autenticação no Google Cloud: {e}")
+        st.error(f"🚨 Falha Crítica de Autenticação no Google Cloud: {e}")
         st.stop()
 
 def ler_arquivo_drive(nome_arquivo, dados_padrao):
@@ -260,7 +264,7 @@ elif st.session_state.perfil_logado == "Professor":
                     ]
                 else:
                     st.session_state.banco_questoes_ia[materia] = [
-                        {"id": 201, "tipo": "Projeto Prático", "enunciado": f"DESAFIO AUTOMÁTICO EXCEL para {materia}: Desenvolva uma solution aplicando automações e fórmulas estruturadas."}
+                        {"id": 201, "tipo": "Projeto Prático", "enunciado": f"DESAFIO AUTOMÁTICO EXCEL para {materia}: Desenvolva uma solução aplicando automações e fórmulas estruturadas."}
                     ]
             
             questoes_disponiveis = st.session_state.banco_questoes_ia[materia]
