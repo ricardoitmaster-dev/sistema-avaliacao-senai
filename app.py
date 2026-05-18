@@ -31,11 +31,16 @@ SCOPES = ['https://www.googleapis.com/auth/drive']
 
 def obter_servico_drive():
     """Autentica no Google Cloud usando os Secrets do Streamlit ou arquivo local"""
-    # 🌟 CORREÇÃO SÊNIOR: Ajustado para ler o bloco [gdrive] atualizado do Streamlit Secrets
     if "gdrive" in st.secrets:
         try:
-            # Transforma os segredos do bloco [gdrive] diretamente em um dicionário Python válido
+            # Puxa o dicionário de segredos do Streamlit
             info_chaves = dict(st.secrets["gdrive"])
+            
+            # 🌟 CORREÇÃO SÊNIOR: Força a conversão das quebras de linha literais (\n) 
+            # para quebras de linha reais que o gerador de PEM do Google exige.
+            if "private_key" in info_chaves:
+                info_chaves["private_key"] = info_chaves["private_key"].replace('\\n', '\n')
+                
             credenciais = service_account.Credentials.from_service_account_info(
                 info_chaves, scopes=SCOPES
             )
@@ -45,7 +50,7 @@ def obter_servico_drive():
 
     # Fallback caso rode localmente com o arquivo físico .json
     if not os.path.exists(ARQUIVO_CHAVES):
-        st.error(f"❌ Arquivo de credenciais '{ARQUIVO_CHAVES}' ou Secrets '[gdrive]' não configurados.")
+        st.error(f"❌ Arquivo de credenciais '{ARQUIVO_CHAVES}' não encontrado e Secrets não configurados adequadamente.")
         st.stop()
     
     credenciais = service_account.Credentials.from_service_account_file(
@@ -112,6 +117,8 @@ USUARIOS_PADRAO = {
 if 'usuarios_cadastrados' not in st.session_state:
     st.session_state.usuarios_cadastrados = ler_arquivo_drive("usuarios.json", USUARIOS_PADRAO)
     
+    # IMPORTANTE: Se o arquivo no seu Drive for antigo e ainda estiver com o login antigo,
+    # forçamos a atualização com o seu login corporativo oficial agora.
     if "sn1084433" not in st.session_state.usuarios_cadastrados:
         st.session_state.usuarios_cadastrados.update(USUARIOS_PADRAO)
         salvar_arquivo_drive("usuarios.json", st.session_state.usuarios_cadastrados)
