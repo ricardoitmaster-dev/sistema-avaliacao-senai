@@ -29,19 +29,28 @@ ID_PASTA_DRIVE = "1-bHDGxbJDWTzT30zL9S-oj0ktM-c60_R"
 SCOPES = ['https://www.googleapis.com/auth/drive']
 
 def obter_servico_drive():
-    """Autentica no Google Cloud usando EXCLUSIVAMENTE os Secrets do Streamlit Cloud"""
+    """Autentica no Google Cloud adaptando-se dinamicamente ao formato dos Secrets"""
     if "google_credentials" in st.secrets:
         try:
-            info_chaves = json.loads(st.secrets["google_credentials"]["json_data"])
+            # Tenta ler se estiver no formato antigo de subchave
+            if isinstance(st.secrets["google_credentials"], dict) and "json_data" in st.secrets["google_credentials"]:
+                info_chaves = json.loads(st.secrets["google_credentials"]["json_data"])
+            # Tenta ler se for uma string JSON direta
+            elif isinstance(st.secrets["google_credentials"], str):
+                info_chaves = json.loads(st.secrets["google_credentials"])
+            # Tenta ler se o Streamlit já converteu o bloco TOML em dicionário diretamente
+            else:
+                info_chaves = dict(st.secrets["google_credentials"])
+                
             credenciais = service_account.Credentials.from_service_account_info(
                 info_chaves, scopes=SCOPES
             )
             return build('drive', 'v3', credentials=credenciais)
         except Exception as e:
-            st.error(f"🚨 Erro crítico de autenticação nos Secrets: {e}")
+            st.error(f"🚨 Erro ao decodificar as credenciais dos Secrets: {e}")
             st.stop()
     else:
-        st.error("🚨 Credenciais 'google_credentials' não configuradas no Streamlit Cloud.")
+        st.error("🚨 Credenciais 'google_credentials' não encontradas no Streamlit Cloud.")
         st.stop()
 
 def ler_arquivo_drive(nome_arquivo, dados_padrao):
@@ -59,7 +68,7 @@ def ler_arquivo_drive(nome_arquivo, dados_padrao):
         conteudo = drive_service.files().get_media(fileId=file_id).execute()
         return json.loads(conteudo.decode('utf-8'))
     except Exception as e:
-        st.sidebar.error(f"Falha de leitura na nuvem: {nome_arquivo}")
+        st.sidebar.error(f"Aviso: Usando dados locais temporários para {nome_arquivo}")
         return dados_padrao
 
 def salvar_arquivo_drive(nome_arquivo, dados):
@@ -81,7 +90,7 @@ def salvar_arquivo_drive(nome_arquivo, dados):
             metadados_arquivo = {'name': nome_arquivo, 'parents': [ID_PASTA_DRIVE]}
             drive_service.files().create(body=metadados_arquivo, media_body=media, fields='id').execute()
     except Exception as e:
-        st.error(f"🚨 Erro fatal ao gravar dados no Drive: {e}")
+        st.error(f"🚨 Erro ao gravar dados no Drive: {e}")
 
 # ==============================================================================
 # BASE DE DADOS INTEGRADA
@@ -92,18 +101,6 @@ USUARIOS_PADRAO = {
         "senha": "Celina2610**", 
         "perfil": "Gestor/Diretor",
         "email_comunicacao": "benedito.ricardo@sp.senai.br"
-    },
-    "sn1220001": {
-        "nome": "Professor de Testes SENAI", 
-        "senha": "122", 
-        "perfil": "Professor",
-        "email_comunicacao": "professor.senai@sp.senai.br"
-    },
-    "aluno.teste@gmail.com": {
-        "nome": "Ricardo (Aluno Teste)", 
-        "senha": "123", 
-        "perfil": "Aluno",
-        "email_comunicacao": "aluno.teste@gmail.com"
     }
 }
 
@@ -189,7 +186,7 @@ else:
         st.session_state.email_comunicacao_logado = None
         st.rerun()
 
-st.title("🏆 SENAI-122 | Sistema Unificado de Avaliações")
+st.title("🏆 SENAI-122 | System Unificado de Avaliações")
 st.markdown("---")
 
 # ==============================================================================
@@ -202,7 +199,7 @@ if st.session_state.perfil_logado == "Gestor/Diretor":
     with aba_dados:
         col1, col2 = st.columns(2)
         with col1:
-            st.metric(label="Total de Provas Geradas", value=len(st.session_state.provas_generadas) if 'provas_generadas' in st.session_state else len(st.session_state.provas_geradas))
+            st.metric(label="Total de Provas Geradas", value=len(st.session_state.provas_geradas))
         with col2:
             st.metric(label="Total de Avaliações Corrigidas", value=len(st.session_state.entregas_sistema))
             
@@ -246,7 +243,7 @@ if st.session_state.perfil_logado == "Gestor/Diretor":
                     "email_comunicacao": email_comunicacao
                 }
                 salvar_arquivo_drive("usuarios.json", st.session_state.usuarios_cadastrados)
-                st.success(f"✅ Cadastro de **{novo_nome}** salvo no Google Drive! Envio de e-mails mapeado para: {email_comunicacao}")
+                st.success(f"✅ Cadastro de **{novo_nome}** salvo com sucesso!")
                 time.sleep(1)
                 st.rerun()
             else:
@@ -287,7 +284,7 @@ elif st.session_state.perfil_logado == "Professor":
                         "email_professor_remetente": st.session_state.email_comunicacao_logado
                     }
                     salvar_arquivo_drive("provas.json", st.session_state.provas_geradas)
-                    st.success(f"🎯 Avaliação liberada! O aluno fará login com o e-mail **{aluno_alvo}** para responder.")
+                    st.success(f"🎯 Avaliação liberada para o e-mail **{aluno_alvo}**.")
                     time.sleep(1)
                     st.rerun()
     
@@ -308,7 +305,7 @@ elif st.session_state.perfil_logado == "Aluno":
     
     if aluno_atual in st.session_state.entregas_sistema:
         entrega = st.session_state.entregas_sistema[aluno_atual]
-        st.success(f"❌ AVALIAÇÃO CONCLUÍDA — Relatório de Notas enviado para {aluno_atual}")
+        st.success(f"❌ AVALIAÇÃO CONCLUÍDA — Relatório enviado para {aluno_atual}")
         st.metric(label="Sua Nota Final", value=f"{entrega['nota']} / 10")
         with st.expander("🔎 Ver Relatório de Feedback da IA"):
             st.write(entrega["feedback_ia"])
@@ -336,7 +333,7 @@ elif st.session_state.perfil_logado == "Aluno":
                         "nota": nota_calculada,
                         "data_entrega": datetime.now().strftime("%d/%m/%Y %H:%M"), 
                         "email_professor": prova_aluno.get("email_professor_remetente", ""),
-                        "feedback_ia": f"Gabarito processado. O resultado detalhado foi mapeado para envio ao e-mail {aluno_atual}."
+                        "feedback_ia": f"Gabarito processado com sucesso."
                     }
                     salvar_arquivo_drive("entregas.json", st.session_state.entregas_sistema)
                     st.rerun()
@@ -356,7 +353,7 @@ elif st.session_state.perfil_logado == "Aluno":
                             "nota": nota_ia_projeto,
                             "data_entrega": datetime.now().strftime("%d/%m/%Y %H:%M"),
                             "email_professor": prova_aluno.get("email_professor_remetente", ""),
-                            "feedback_ia": f"Varredura estrutural concluída no arquivo `{arquivo_trabalho.name}`. Cópia do relatório direcionada para {aluno_atual}."
+                            "feedback_ia": f"Varredura estrutural concluída no arquivo `{arquivo_trabalho.name}`."
                         }
                         salvar_arquivo_drive("entregas.json", st.session_state.entregas_sistema)
                         st.success("Arquivo processado e registrado com sucesso!")
