@@ -29,28 +29,19 @@ ID_PASTA_DRIVE = "1-bHDGxbJDWTzT30zL9S-oj0ktM-c60_R"
 SCOPES = ['https://www.googleapis.com/auth/drive']
 
 def obter_servico_drive():
-    """Autentica no Google Cloud adaptando-se dinamicamente ao formato dos Secrets"""
-    if "google_credentials" in st.secrets:
-        try:
-            # Tenta ler se estiver no formato antigo de subchave
-            if isinstance(st.secrets["google_credentials"], dict) and "json_data" in st.secrets["google_credentials"]:
-                info_chaves = json.loads(st.secrets["google_credentials"]["json_data"])
-            # Tenta ler se for uma string JSON direta
-            elif isinstance(st.secrets["google_credentials"], str):
-                info_chaves = json.loads(st.secrets["google_credentials"])
-            # Tenta ler se o Streamlit já converteu o bloco TOML em dicionário diretamente
-            else:
-                info_chaves = dict(st.secrets["google_credentials"])
-                
+    """Autentica de forma direta e segura usando a sub-chave json_data dos Secrets"""
+    try:
+        if "google_credentials" in st.secrets and "json_data" in st.secrets["google_credentials"]:
+            info_chaves = json.loads(st.secrets["google_credentials"]["json_data"])
             credenciais = service_account.Credentials.from_service_account_info(
                 info_chaves, scopes=SCOPES
             )
             return build('drive', 'v3', credentials=credenciais)
-        except Exception as e:
-            st.error(f"🚨 Erro ao decodificar as credenciais dos Secrets: {e}")
+        else:
+            st.error("🚨 Formato incorreto nos Secrets: Falta a chave [google_credentials] com json_data.")
             st.stop()
-    else:
-        st.error("🚨 Credenciais 'google_credentials' não encontradas no Streamlit Cloud.")
+    except Exception as e:
+        st.error(f"🚨 Erro ao inicializar o Google Drive: {e}")
         st.stop()
 
 def ler_arquivo_drive(nome_arquivo, dados_padrao):
@@ -68,7 +59,7 @@ def ler_arquivo_drive(nome_arquivo, dados_padrao):
         conteudo = drive_service.files().get_media(fileId=file_id).execute()
         return json.loads(conteudo.decode('utf-8'))
     except Exception as e:
-        st.sidebar.error(f"Aviso: Usando dados locais temporários para {nome_arquivo}")
+        st.sidebar.error(f"Aviso de Carregamento Local: {nome_arquivo}")
         return dados_padrao
 
 def salvar_arquivo_drive(nome_arquivo, dados):
@@ -186,7 +177,7 @@ else:
         st.session_state.email_comunicacao_logado = None
         st.rerun()
 
-st.title("🏆 SENAI-122 | System Unificado de Avaliações")
+st.title("🏆 SENAI-122 | Sistema Unificado de Avaliações")
 st.markdown("---")
 
 # ==============================================================================
