@@ -23,14 +23,13 @@ import random
 from datetime import datetime
 
 # ==============================================================================
-# CONFIGURAÇÃO DE ACESSO AO GOOGLE DRIVE EM NUVEM
+# CONFIGURAÇÃO DE ACESSO EXCLUSIVO EM NUVEM (GOOGLE DRIVE SECRETS)
 # ==============================================================================
 ID_PASTA_DRIVE = "1-bHDGxbJDWTzT30zL9S-oj0ktM-c60_R"
-ARQUIVO_CHAVES = "chaves_google.json"
 SCOPES = ['https://www.googleapis.com/auth/drive']
 
 def obter_servico_drive():
-    """Autentica no Google Cloud usando os Secrets do Streamlit ou arquivo local"""
+    """Autentica no Google Cloud usando EXCLUSIVAMENTE os Secrets do Streamlit Cloud"""
     if "google_credentials" in st.secrets:
         try:
             info_chaves = json.loads(st.secrets["google_credentials"]["json_data"])
@@ -39,65 +38,53 @@ def obter_servico_drive():
             )
             return build('drive', 'v3', credentials=credenciais)
         except Exception as e:
-            st.sidebar.error(f"Erro ao ler credenciais dos Secrets: {e}")
-
-    if not os.path.exists(ARQUIVO_CHAVES):
-        st.error(f"❌ Arquivo de credenciais '{ARQUIVO_CHAVES}' não encontrado.")
+            st.error(f"🚨 Erro crítico de autenticação nos Secrets: {e}")
+            st.stop()
+    else:
+        st.error("🚨 Credenciais 'google_credentials' não configuradas no Streamlit Cloud.")
         st.stop()
-    
-    credenciais = service_account.Credentials.from_service_account_file(
-        ARQUIVO_CHAVES, scopes=SCOPES
-    )
-    return build('drive', 'v3', credentials=credenciais)
 
 def ler_arquivo_drive(nome_arquivo, dados_padrao):
-    """Busca um arquivo no Drive com tratamento de oscilação de rede"""
-    for tentativa in range(3):
-        try:
-            drive_service = obter_servico_drive()
-            query = f"name = '{nome_arquivo}' and '{ID_PASTA_DRIVE}' in parents and trashed = false"
-            resultados = drive_service.files().list(q=query, fields="files(id)").execute()
-            files = resultados.get('files', [])
-            
-            if not files:
-                return dados_padrao
-            
-            file_id = files[0]['id']
-            conteudo = drive_service.files().get_media(fileId=file_id).execute()
-            return json.loads(conteudo.decode('utf-8'))
-        except Exception as e:
-            if tentativa == 2:
-                st.sidebar.warning(f"⚠️ Modo Local Ativo: Sem resposta estável do Google Drive para {nome_arquivo}.")
-                return dados_padrao
-            time.sleep(1)
+    """Busca um arquivo diretamente no Drive"""
+    try:
+        drive_service = obter_servico_drive()
+        query = f"name = '{nome_arquivo}' and '{ID_PASTA_DRIVE}' in parents and trashed = false"
+        resultados = drive_service.files().list(q=query, fields="files(id)").execute()
+        files = resultados.get('files', [])
+        
+        if not files:
+            return dados_padrao
+        
+        file_id = files[0]['id']
+        conteudo = drive_service.files().get_media(fileId=file_id).execute()
+        return json.loads(conteudo.decode('utf-8'))
+    except Exception as e:
+        st.sidebar.error(f"Falha de leitura na nuvem: {nome_arquivo}")
+        return dados_padrao
 
 def salvar_arquivo_drive(nome_arquivo, dados):
-    """Grava um arquivo JSON diretamente na pasta do Google Drive"""
-    for tentativa in range(3):
-        try:
-            drive_service = obter_servico_drive()
-            json_dados = json.dumps(dados, indent=4, ensure_ascii=False)
-            
-            query = f"name = '{nome_arquivo}' and '{ID_PASTA_DRIVE}' in parents and trashed = false"
-            resultados = drive_service.files().list(q=query, fields="files(id)").execute()
-            files = resultados.get('files', [])
-            
-            media = MediaInMemoryUpload(json_dados.encode('utf-8'), mimetype='application/json')
-            
-            if files:
-                file_id = files[0]['id']
-                drive_service.files().update(fileId=file_id, media_body=media).execute()
-            else:
-                metadados_arquivo = {'name': nome_arquivo, 'parents': [ID_PASTA_DRIVE]}
-                drive_service.files().create(body=metadados_arquivo, media_body=media, fields='id').execute()
-            break
-        except Exception as e:
-            if tentativa == 2:
-                st.sidebar.error(f"🚨 Erro de conexão ao salvar {nome_arquivo} na nuvem.")
-            time.sleep(1)
+    """Grava um arquivo JSON diretamente na pasta do Google Drive de forma direta"""
+    try:
+        drive_service = obter_servico_drive()
+        json_dados = json.dumps(dados, indent=4, ensure_ascii=False)
+        
+        query = f"name = '{nome_arquivo}' and '{ID_PASTA_DRIVE}' in parents and trashed = false"
+        resultados = drive_service.files().list(q=query, fields="files(id)").execute()
+        files = resultados.get('files', [])
+        
+        media = MediaInMemoryUpload(json_dados.encode('utf-8'), mimetype='application/json')
+        
+        if files:
+            file_id = files[0]['id']
+            drive_service.files().update(fileId=file_id, media_body=media).execute()
+        else:
+            metadados_arquivo = {'name': nome_arquivo, 'parents': [ID_PASTA_DRIVE]}
+            drive_service.files().create(body=metadados_arquivo, media_body=media, fields='id').execute()
+    except Exception as e:
+        st.error(f"🚨 Erro fatal ao gravar dados no Drive: {e}")
 
 # ==============================================================================
-# BASE DE DADOS INTEGRADA (E-MAIL ATUALIZADO DO GESTOR)
+# BASE DE DADOS INTEGRADA
 # ==============================================================================
 USUARIOS_PADRAO = {
     "sn1084433": {
@@ -122,10 +109,9 @@ USUARIOS_PADRAO = {
 
 if 'usuarios_cadastrados' not in st.session_state:
     st.session_state.usuarios_cadastrados = ler_arquivo_drive("usuarios.json", USUARIOS_PADRAO)
-    
-    # Força a reconfiguração para atualizar o seu e-mail no arquivo em nuvem
-    st.session_state.usuarios_cadastrados["sn1084433"] = USUARIOS_PADRAO["sn1084433"]
-    salvar_arquivo_drive("usuarios.json", st.session_state.usuarios_cadastrados)
+    if "sn1084433" not in st.session_state.usuarios_cadastrados:
+        st.session_state.usuarios_cadastrados.update(USUARIOS_PADRAO)
+        salvar_arquivo_drive("usuarios.json", st.session_state.usuarios_cadastrados)
 
 if 'provas_geradas' not in st.session_state:
     st.session_state.provas_geradas = ler_arquivo_drive("provas.json", {})
@@ -216,7 +202,7 @@ if st.session_state.perfil_logado == "Gestor/Diretor":
     with aba_dados:
         col1, col2 = st.columns(2)
         with col1:
-            st.metric(label="Total de Provas Geradas", value=len(st.session_state.provas_geradas))
+            st.metric(label="Total de Provas Geradas", value=len(st.session_state.provas_generadas) if 'provas_generadas' in st.session_state else len(st.session_state.provas_geradas))
         with col2:
             st.metric(label="Total de Avaliações Corrigidas", value=len(st.session_state.entregas_sistema))
             
@@ -261,6 +247,8 @@ if st.session_state.perfil_logado == "Gestor/Diretor":
                 }
                 salvar_arquivo_drive("usuarios.json", st.session_state.usuarios_cadastrados)
                 st.success(f"✅ Cadastro de **{novo_nome}** salvo no Google Drive! Envio de e-mails mapeado para: {email_comunicacao}")
+                time.sleep(1)
+                st.rerun()
             else:
                 st.error("Por favor, preencha todos os campos cadastrais.")
 
@@ -300,6 +288,8 @@ elif st.session_state.perfil_logado == "Professor":
                     }
                     salvar_arquivo_drive("provas.json", st.session_state.provas_geradas)
                     st.success(f"🎯 Avaliação liberada! O aluno fará login com o e-mail **{aluno_alvo}** para responder.")
+                    time.sleep(1)
+                    st.rerun()
     
     with aba_notas_prof:
         st.subheader("Painel de Notas Eletrônicas")
