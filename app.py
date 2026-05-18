@@ -23,78 +23,94 @@ import random
 from datetime import datetime
 
 # ==============================================================================
-# CONFIGURAÇÃO DE ACESSO EXCLUSIVO EM NUVEM (GOOGLE DRIVE SECRETS)
+# CONFIGURAÇÃO DE ACESSO AO GOOGLE DRIVE EM NUVEM
 # ==============================================================================
 ID_PASTA_DRIVE = "1-bHDGxbJDWTzT30zL9S-oj0ktM-c60_R"
+ARQUIVO_CHAVES = "chaves_google.json"
 SCOPES = ['https://www.googleapis.com/auth/drive']
 
-def obtener_servico_drive():
-    """Autentica na API do Google Drive puxando o dicionário limpo dos Secrets"""
-    try:
-        # Puxa diretamente o bloco [gdrive] configurado nos Secrets do Streamlit
-        info_chaves = dict(st.secrets["gdrive"])
-        credenciais = service_account.Credentials.from_service_account_info(
-            info_chaves, scopes=SCOPES
-        )
-        return build('drive', 'v3', credentials=credenciais)
-    except Exception as e:
-        st.error(f"🚨 Falha de Autenticação no Google Cloud: {e}")
+def obter_servico_drive():
+    """Autentica no Google Cloud usando os Secrets do Streamlit ou arquivo local"""
+    if "google_credentials" in st.secrets:
+        try:
+            info_chaves = json.loads(st.secrets["google_credentials"]["json_data"])
+            credenciais = service_account.Credentials.from_service_account_info(
+                info_chaves, scopes=SCOPES
+            )
+            return build('drive', 'v3', credentials=credenciais)
+        except Exception as e:
+            st.sidebar.error(f"Erro ao ler credenciais dos Secrets: {e}")
+
+    if not os.path.exists(ARQUIVO_CHAVES):
+        st.error(f"❌ Arquivo de credenciais '{ARQUIVO_CHAVES}' não encontrado.")
         st.stop()
+    
+    credenciais = service_account.Credentials.from_service_account_file(
+        ARQUIVO_CHAVES, scopes=SCOPES
+    )
+    return build('drive', 'v3', credentials=credenciais)
 
 def ler_arquivo_drive(nome_arquivo, dados_padrao):
-    """Busca um arquivo diretamente na pasta designada do Google Drive"""
-    try:
-        drive_service = obtener_servico_drive()
-        query = f"name = '{nome_arquivo}' and '{ID_PASTA_DRIVE}' in parents and trashed = false"
-        resultados = drive_service.files().list(q=query, fields="files(id)").execute()
-        files = resultados.get('files', [])
-        
-        if not files:
-            return dados_padrao
-        
-        file_id = files[0]['id']
-        conteudo = drive_service.files().get_media(fileId=file_id).execute()
-        return json.loads(conteudo.decode('utf-8'))
-    except Exception as e:
-        st.sidebar.error(f"Erro de Leitura no Google Drive para '{nome_arquivo}': {e}")
-        return dados_padrao
+    """Busca um arquivo no Drive com até 3 tentativas em caso de oscilação de rede"""
+    for tentativa in range(3):
+        try:
+            drive_service = obter_servico_drive()
+            query = f"name = '{nome_arquivo}' and '{ID_PASTA_DRIVE}' in parents and trashed = false"
+            resultados = drive_service.files().list(q=query, fields="files(id)").execute()
+            files = resultados.get('files', [])
+            
+            if not files:
+                return dados_padrao
+            
+            file_id = files[0]['id']
+            conteudo = drive_service.files().get_media(fileId=file_id).execute()
+            return json.loads(conteudo.decode('utf-8'))
+        except Exception as e:
+            if tentativa == 2:
+                st.sidebar.warning(f"⚠️ Modo Local Ativo: Sem resposta estável do Google Drive para {nome_arquivo}.")
+                return dados_padrao
+            time.sleep(1)
 
 def salvar_arquivo_drive(nome_arquivo, dados):
     """Grava um arquivo JSON diretamente na pasta do Google Drive"""
-    try:
-        drive_service = obtener_servico_drive()
-        json_dados = json.dumps(dados, indent=4, ensure_ascii=False)
-        
-        query = f"name = '{nome_arquivo}' and '{ID_PASTA_DRIVE}' in parents and trashed = false"
-        resultados = drive_service.files().list(q=query, fields="files(id)").execute()
-        files = resultados.get('files', [])
-        
-        media = MediaInMemoryUpload(json_dados.encode('utf-8'), mimetype='application/json')
-        
-        if files:
-            file_id = files[0]['id']
-            drive_service.files().update(fileId=file_id, media_body=media).execute()
-        else:
-            metadados_arquivo = {'name': nome_arquivo, 'parents': [ID_PASTA_DRIVE]}
-            drive_service.files().create(body=metadados_arquivo, media_body=media, fields='id').execute()
-        st.toast(f"✅ Sincronizado no Google Drive: {nome_arquivo}")
-    except Exception as e:
-        st.sidebar.error(f"🚨 Erro de Gravação no Google Drive para '{nome_arquivo}': {e}")
+    for tentativa in range(3):
+        try:
+            drive_service = obter_servico_drive()
+            json_dados = json.dumps(dados, indent=4, ensure_ascii=False)
+            
+            query = f"name = '{nome_arquivo}' and '{ID_PASTA_DRIVE}' in parents and trashed = false"
+            resultados = drive_service.files().list(q=query, fields="files(id)").execute()
+            files = resultados.get('files', [])
+            
+            media = MediaInMemoryUpload(json_dados.encode('utf-8'), mimetype='application/json')
+            
+            if files:
+                file_id = files[0]['id']
+                drive_service.files().update(fileId=file_id, media_body=media).execute()
+            else:
+                metadados_arquivo = {'name': nome_arquivo, 'parents': [ID_PASTA_DRIVE]}
+                drive_service.files().create(body=metadados_arquivo, media_body=media, fields='id').execute()
+            break
+        except Exception as e:
+            if tentativa == 2:
+                st.sidebar.error(f"🚨 Erro de conexão ao salvar {nome_arquivo} na nuvem.")
+            time.sleep(1)
 
 # ==============================================================================
-# BASE DE DADOS INTEGRADA
+# BASE DE DADOS CORPORATIVA (IDs NO PADRÃO SENAI)
 # ==============================================================================
 USUARIOS_PADRAO = {
-    "sn1084433": {
-        "nome": "Benedito Ricardo dos Santos", 
-        "senha": "Celina2610**", 
-        "perfil": "Gestor/Diretor",
-        "email_comunicacao": "ricardo.gestor@fiesp.com.br"
-    }
+    "sn1084433": {"nome": "Benedito Ricardo dos Santos", "senha": "Celina2610**", "perfil": "Gestor/Diretor"},
+    "sn1220001": {"nome": "Professor de Testes SENAI", "senha": "122", "perfil": "Professor"},
+    "aluno_ricardo": {"nome": "Ricardo (Aluno)", "senha": "123", "perfil": "Aluno"},
+    "aluno_elizandra": {"nome": "Elizandra (Aluna)", "senha": "123", "perfil": "Aluno"}
 }
 
 if 'usuarios_cadastrados' not in st.session_state:
     st.session_state.usuarios_cadastrados = ler_arquivo_drive("usuarios.json", USUARIOS_PADRAO)
+    
+    # IMPORTANTE: Se o arquivo no seu Drive for antigo e ainda estiver com o login antigo,
+    # forçamos a atualização com o seu login corporativo oficial agora.
     if "sn1084433" not in st.session_state.usuarios_cadastrados:
         st.session_state.usuarios_cadastrados.update(USUARIOS_PADRAO)
         salvar_arquivo_drive("usuarios.json", st.session_state.usuarios_cadastrados)
@@ -117,8 +133,6 @@ if 'perfil_logado' not in st.session_state:
     st.session_state.perfil_logado = None
 if 'nome_exibicao' not in st.session_state:
     st.session_state.nome_exibicao = None
-if 'email_comunicacao_logado' not in st.session_state:
-    st.session_state.email_comunicacao_logado = None
 
 # ==============================================================================
 # CONFIGURAÇÃO DA INTERFACE VISUAL
@@ -142,7 +156,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# PORTAL DE ACESSO DINÂMICO
+# PORTAL DE ACESSO (LOGIN CORPORATIVO)
 # ==============================================================================
 st.sidebar.title("🔐 Portal de Acesso SENAI")
 
@@ -150,8 +164,8 @@ if st.session_state.usuario_logado is None:
     if 'login_key' not in st.session_state:
         st.session_state.login_key = 0
 
-    usuario_input = st.sidebar.text_input("Login (snXXXXXXX ou E-mail do Aluno):", key=f"user_{st.session_state.login_key}").strip().lower()
-    senha_input = st.sidebar.text_input("Senha de acesso:", type="password", key=f"pass_{st.session_state.login_key}")
+    usuario_input = st.sidebar.text_input("Login Corporativo (Ex: sn1084433):", key=f"user_{st.session_state.login_key}").strip().lower()
+    senha_input = st.sidebar.text_input("Senha corporativa:", type="password", key=f"pass_{st.session_state.login_key}")
     
     if st.sidebar.button("Autenticar no Sistema"):
         user_data = st.session_state.usuarios_cadastrados.get(usuario_input)
@@ -159,20 +173,18 @@ if st.session_state.usuario_logado is None:
             st.session_state.usuario_logado = usuario_input
             st.session_state.perfil_logado = user_data["perfil"]
             st.session_state.nome_exibicao = user_data.get("nome", usuario_input)
-            st.session_state.email_comunicacao_logado = user_data.get("email_comunicacao", "")
             st.session_state.login_key += 1
             st.rerun()
         else:
-            st.sidebar.error("❌ Credenciais incorretas.")
+            st.sidebar.error("❌ Login ou senha corporativa incorretos.")
 else:
     st.sidebar.success(f"Conectado como:\n**{st.session_state.nome_exibicao}**")
+    st.sidebar.caption(f"ID: {st.session_state.usuario_logado.upper()}")
     st.sidebar.caption(f"Perfil: {st.session_state.perfil_logado}")
-    st.sidebar.caption(f"E-mail de Envio: {st.session_state.email_comunicacao_logado}")
     if st.sidebar.button("🚪 Encerrar Sessão (Sair)"):
         st.session_state.usuario_logado = None
         st.session_state.perfil_logado = None
         st.session_state.nome_exibicao = None
-        st.session_state.email_comunicacao_logado = None
         st.rerun()
 
 st.title("🏆 SENAI-122 | Sistema Unificado de Avaliações")
@@ -197,11 +209,10 @@ if st.session_state.perfil_logado == "Gestor/Diretor":
             dados_auditoria = []
             for aluno_id, dados in st.session_state.entregas_sistema.items():
                 dados_auditoria.append({
-                    "E-mail do Estudante": aluno_id,
+                    "ID do Estudante": aluno_id.upper(),
                     "Matéria": dados["materia"],
                     "Tipo de Prova": dados["tipo_prova"],
-                    "Nota Computada": f"{dados['nota']} / 10",
-                    "E-mail do Professor Notificado": dados.get("email_professor", "Não registrado"),
+                    "Nota Computada pelo App": f"{dados['nota']} / 10",
                     "Data/Hora de Envio": dados["data_entrega"]
                 })
             st.table(pd.DataFrame(dados_auditoria))
@@ -210,31 +221,22 @@ if st.session_state.perfil_logado == "Gestor/Diretor":
             
     with aba_cadastros:
         st.subheader("Registrar Novo Usuário no Sistema SENAI")
+        st.caption("Insira os dados cadastrais utilizando as regras de ID institucional.")
         
-        novo_perfil = st.selectbox("Selecione o Perfil de Acesso Institucional:", ["Aluno", "Professor", "Gestor/Diretor"])
-        
-        if novo_perfil == "Aluno":
-            novo_id = st.text_input("E-mail Particular do Aluno (Será o Login dele):", placeholder="exemplo@gmail.com").strip().lower()
-            email_comunicacao = novo_id
-        else:
-            novo_id = st.text_input("Login/Chapa Corporativa (Ex: sn1220045):").strip().lower()
-            email_comunicacao = st.text_input("E-mail Corporativo do Docente/Gestor (Para Envio de Relatórios):").strip()
-
-        novo_nome = st.text_input("Nome Completo:")
+        novo_id = st.text_input("Login/Chapa Corporativa (Ex: sn1220045):").strip().lower()
+        novo_nome = st.text_input("Nome Completo do Colaborador/Aluno:")
         nova_senha = st.text_input("Defina a Senha de Acesso:", type="password")
+        novo_perfil = st.selectbox("Perfil de Acesso Institucional:", ["Professor", "Aluno", "Gestor/Diretor"])
         
         if st.button("Salvar Novo Usuário"):
-            if novo_id and novo_nome and nova_senha and email_comunicacao:
+            if novo_id and novo_nome and nova_senha:
                 st.session_state.usuarios_cadastrados[novo_id] = {
                     "nome": novo_nome, 
                     "senha": nova_senha, 
-                    "perfil": novo_perfil,
-                    "email_comunicacao": email_comunicacao
+                    "perfil": novo_perfil
                 }
                 salvar_arquivo_drive("usuarios.json", st.session_state.usuarios_cadastrados)
-                st.success(f"✅ Cadastro de **{novo_nome}** processado com sucesso!")
-                time.sleep(1)
-                st.rerun()
+                st.success(f"✅ Usuário **{novo_nome}** ({novo_id.upper()}) salvo com sucesso no Google Drive!")
             else:
                 st.error("Por favor, preencha todos os campos cadastrais.")
 
@@ -261,21 +263,15 @@ elif st.session_state.perfil_logado == "Professor":
                     ]
             
             questoes_disponiveis = st.session_state.banco_questoes_ia[materia]
-            aluno_alvo = st.text_input("Digite o E-mail Particular do Aluno Alvo:").strip().lower()
+            aluno_alvo = st.text_input("ID/Chapa do Aluno alvo:").strip().lower()
             
             if st.button("🚀 Liberar Avaliação no Sistema"):
                 if aluno_alvo:
                     st.session_state.provas_geradas[aluno_alvo] = {
-                        "materia": materia, 
-                        "tipo_prova": tipo_prova, 
-                        "questoes": questoes_disponiveis, 
-                        "data_criacao": datetime.now().strftime("%d/%m/%Y %H:%M"),
-                        "email_professor_remetente": st.session_state.email_comunicacao_logado
+                        "materia": materia, "tipo_prova": tipo_prova, "questoes": questoes_disponiveis, "data_criacao": datetime.now().strftime("%d/%m/%Y %H:%M")
                     }
                     salvar_arquivo_drive("provas.json", st.session_state.provas_geradas)
-                    st.success(f"🎯 Avaliação liberada para o e-mail **{aluno_alvo}**.")
-                    time.sleep(1)
-                    st.rerun()
+                    st.success(f"🎯 Avaliação liberada com sucesso para o aluno: **{aluno_alvo.upper()}**.")
     
     with aba_notas_prof:
         st.subheader("Painel de Notas Eletrônicas")
@@ -294,13 +290,13 @@ elif st.session_state.perfil_logado == "Aluno":
     
     if aluno_atual in st.session_state.entregas_sistema:
         entrega = st.session_state.entregas_sistema[aluno_atual]
-        st.success(f"❌ AVALIAÇÃO CONCLUÍDA — Relatório enviado para {aluno_atual}")
+        st.success("❌ AVALIAÇÃO CONCLUÍDA E TRAVADA")
         st.metric(label="Sua Nota Final", value=f"{entrega['nota']} / 10")
         with st.expander("🔎 Ver Relatório de Feedback da IA"):
             st.write(entrega["feedback_ia"])
     else:
         if aluno_atual not in st.session_state.provas_geradas:
-            st.warning("⚠️ Nenhuma avaliação liberada para este e-mail no momento.")
+            st.warning("⚠️ Aguardando liberação de avaliação por parte do seu professor.")
         else:
             prova_aluno = st.session_state.provas_geradas[aluno_atual]
             st.info(f"Avaliação Ativa: **{prova_aluno['materia']}** | Formato: **{prova_aluno['tipo_prova']}**")
@@ -312,17 +308,13 @@ elif st.session_state.perfil_logado == "Aluno":
                     escolha = st.radio("Selecione a alternativa:", ["A", "B", "C", "D"], format_func=lambda x: f"{x}) {q['alternativas'][x]}", key=f"q_{q['id']}")
                     respostas_aluno[q["id"]] = escolha
                 
-                if st.button("🔒 Finalizar e Enviar Notas para o E-mail"):
+                if st.button("🔒 Finalizar e Obter Nota Instantânea"):
                     acertos = sum(1 for q in prova_aluno["questoes"] if respostas_aluno.get(q["id"]) == q["correta"])
                     nota_calculada = round((acertos / len(prova_aluno["questoes"])) * 10, 2)
                     
                     st.session_state.entregas_sistema[aluno_atual] = {
-                        "materia": prova_aluno["materia"], 
-                        "tipo_prova": "Múltipla Escolha", 
-                        "nota": nota_calculada,
-                        "data_entrega": datetime.now().strftime("%d/%m/%Y %H:%M"), 
-                        "email_professor": prova_aluno.get("email_professor_remetente", ""),
-                        "feedback_ia": f"Gabarito processado com sucesso."
+                        "materia": prova_aluno["materia"], "tipo_prova": "Múltipla Escolha", "nota": nota_calculada,
+                        "data_entrega": datetime.now().strftime("%d/%m/%Y %H:%M"), "feedback_ia": "Correção automatizada concluída."
                     }
                     salvar_arquivo_drive("entregas.json", st.session_state.entregas_sistema)
                     st.rerun()
@@ -337,11 +329,8 @@ elif st.session_state.perfil_logado == "Aluno":
                     if arquivo_trabalho is not None:
                         nota_ia_projeto = round(random.uniform(7.5, 10.0), 1)
                         st.session_state.entregas_sistema[aluno_atual] = {
-                            "materia": prova_aluno["materia"], 
-                            "tipo_prova": "Projeto Prático", 
-                            "nota": nota_ia_projeto,
+                            "materia": prova_aluno["materia"], "tipo_prova": "Projeto Prático", "nota": nota_ia_projeto,
                             "data_entrega": datetime.now().strftime("%d/%m/%Y %H:%M"),
-                            "email_professor": prova_aluno.get("email_professor_remetente", ""),
                             "feedback_ia": f"Varredura estrutural concluída no arquivo `{arquivo_trabalho.name}`."
                         }
                         salvar_arquivo_drive("entregas.json", st.session_state.entregas_sistema)
