@@ -29,42 +29,15 @@ ID_PASTA_DRIVE = "1-bHDGxbJDWTzT30zL9S-oj0ktM-c60_R"
 SCOPES = ['https://www.googleapis.com/auth/drive']
 
 def obtener_servico_drive():
-    """Autentica na API do Google Drive tratando flexivelmente os formatos do TOML"""
+    """Autentica na API do Google Drive usando os Secrets do Streamlit"""
     try:
-        # Tenta carregar o dicionário completo a partir dos Secrets
+        # Carrega as chaves diretamente do painel de Secrets
         info_chaves = dict(st.secrets)
         
-        # Caso as chaves estejam aninhadas ou encapsuladas erroneamente
-        if "private_key" not in info_chaves and "conteudo_json_puro" in st.secrets:
-            info_chaves = json.loads(st.secrets["conteudo_json_puro"])
+        # Garante que qualquer '\n' literal (se existir) seja lido como quebra de linha
+        if "private_key" in info_chaves:
+            info_chaves["private_key"] = info_chaves["private_key"].replace("\\n", "\n")
             
-        if "private_key" not in info_chaves:
-            st.error("🚨 Nenhuma credencial válida ('private_key') encontrada nos Secrets do Streamlit.")
-            st.stop()
-
-        # Tratamento cirúrgico e definitivo da Chave Privada (OpenSSL/PEM)
-        p_key = str(info_chaves["private_key"])
-        
-        # Limpa aspas extras que podem vir se o usuário colar com aspas triplas ou duplas por engano
-        p_key = p_key.strip("'\" \n\r")
-        
-        # Corrige quebras de linhas literais escritas como texto "\n"
-        if "\\n" in p_key:
-            p_key = p_key.replace("\\n", "\n")
-            
-        # Reconstrói o cabeçalho/rodapé de forma limpa caso perca formatação
-        linhas = [line.strip() for line in p_key.split("\n") if line.strip()]
-        conteudo_limpo = []
-        
-        for lin in linhas:
-            if "BEGIN PRIVATE KEY" in lin or "END PRIVATE KEY" in lin:
-                continue
-            conteudo_limpo.append(lin.replace(" ", "")) # Remove espaços internos acidentais
-            
-        # Junta tudo no padrão estrito que a biblioteca de criptografia do Google exige
-        chave_formatada = "-----BEGIN PRIVATE KEY-----\n" + "\n".join(conteudo_limpo) + "\n-----END PRIVATE KEY-----\n"
-        info_chaves["private_key"] = chave_formatada
-
         credenciais = service_account.Credentials.from_service_account_info(
             info_chaves, scopes=SCOPES
         )
@@ -255,131 +228,4 @@ if st.session_state.perfil_logado == "Gestor/Diretor":
         novo_nome = st.text_input("Nome Completo:")
         nova_senha = st.text_input("Defina a Senha de Acesso:", type="password")
         
-        if st.button("Salvar Novo Usuário"):
-            if novo_id and novo_nome and nova_senha and email_comunicacao:
-                st.session_state.usuarios_cadastrados[novo_id] = {
-                    "nome": novo_nome, 
-                    "senha": nova_senha, 
-                    "perfil": novo_perfil,
-                    "email_comunicacao": email_comunicacao
-                }
-                salvar_arquivo_drive("usuarios.json", st.session_state.usuarios_cadastrados)
-                st.success(f"✅ Cadastro de **{novo_nome}** processado com sucesso!")
-                time.sleep(1)
-                st.rerun()
-            else:
-                st.error("Por favor, preencha todos os campos cadastrais.")
-
-# ==============================================================================
-# PAINEL 2: VISÃO DO PROFESSOR
-# ==============================================================================
-elif st.session_state.perfil_logado == "Professor":
-    st.header("👨‍🏫 Central de Gestão do Professor")
-    aba_criar, aba_notas_prof = st.tabs(["⚙️ Gerar Nova Avaliação", "📊 Notas Computadas pelo App"])
-    
-    with aba_criar:
-        materia = st.text_input("Digite o nome da disciplina/área do conhecimento:").strip().upper()
-        if materia:
-            tipo_prova = st.selectbox("Selecione o formato da avaliação:", ["Múltipla Escolha", "Projeto Prático (Criação de Planilha/Arquivos)"])
-            
-            if materia not in st.session_state.banco_questoes_ia or st.session_state.banco_questoes_ia[materia][0]["tipo"] != tipo_prova:
-                if tipo_prova == "Múltipla Escolha":
-                    st.session_state.banco_questoes_ia[materia] = [
-                        {"id": 101, "tipo": "Múltipla Escolha", "enunciado": f"Questão objetiva automática sobre {materia}?", "alternativas": {"A": "Incorreta", "B": "Gabarito", "C": "Incorreta", "D": "Incorreta"}, "correta": "B"}
-                    ]
-                else:
-                    st.session_state.banco_questoes_ia[materia] = [
-                        {"id": 201, "tipo": "Projeto Prático", "enunciado": f"DESAFIO AUTOMÁTICO EXCEL para {materia}: Desenvolva uma solução aplicando automações e fórmulas estruturadas."}
-                    ]
-            
-            questoes_disponiveis = st.session_state.banco_questoes_ia[materia]
-            aluno_alvo = st.text_input("Digite o E-mail Particular do Aluno Alvo:").strip().lower()
-            
-            if st.button("🚀 Liberar Avaliação no Sistema"):
-                if aluno_alvo:
-                    st.session_state.provas_geradas[aluno_alvo] = {
-                        "materia": materia, 
-                        "tipo_prova": tipo_prova, 
-                        "questoes": questoes_disponiveis, 
-                        "data_criacao": datetime.now().strftime("%d/%m/%Y %H:%M"),
-                        "email_professor_remetente": st.session_state.email_comunicacao_logado
-                    }
-                    salvar_arquivo_drive("provas.json", st.session_state.provas_geradas)
-                    st.success(f"🎯 Avaliação liberada para o e-mail **{aluno_alvo}**.")
-                    time.sleep(1)
-                    st.rerun()
-    
-    with aba_notas_prof:
-        st.subheader("Painel de Notas Eletrônicas")
-        if st.session_state.entregas_sistema:
-            df_prof = pd.DataFrame(st.session_state.entregas_sistema).T
-            st.dataframe(df_prof[["materia", "tipo_prova", "nota", "data_entrega"]])
-        else:
-            st.info("Nenhuma avaliação entregue até o momento.")
-
-# ==============================================================================
-# PAINEL 3: VISÃO DO ALUNO
-# ==============================================================================
-elif st.session_state.perfil_logado == "Aluno":
-    st.header("📝 Central de Provas do Aluno")
-    aluno_atual = st.session_state.usuario_logado
-    
-    if aluno_atual in st.session_state.entregas_sistema:
-        entrega = st.session_state.entregas_sistema[aluno_atual]
-        st.success(f"❌ AVALIAÇÃO CONCLUÍDA — Relatório enviado para {aluno_atual}")
-        st.metric(label="Sua Nota Final", value=f"{entrega['nota']} / 10")
-        with st.expander("🔎 Ver Relatório de Feedback da IA"):
-            st.write(entrega["feedback_ia"])
-    else:
-        if aluno_atual not in st.session_state.provas_geradas:
-            st.warning("⚠️ Nenhuma avaliação liberada para este e-mail no momento.")
-        else:
-            prova_aluno = st.session_state.provas_geradas[aluno_atual]
-            st.info(f"Avaliação Ativa: **{prova_aluno['materia']}** | Formato: **{prova_aluno['tipo_prova']}**")
-            
-            if prova_aluno["tipo_prova"] == "Múltipla Escolha":
-                respostas_aluno = {}
-                for idx, q in enumerate(prova_aluno["questoes"]):
-                    st.markdown(f"#### **Questão {idx+1}:** {q['enunciado']}")
-                    escolha = st.radio("Selecione a alternativa:", ["A", "B", "C", "D"], format_func=lambda x: f"{x}) {q['alternativas'][x]}", key=f"q_{q['id']}")
-                    respostas_aluno[q["id"]] = escolha
-                
-                if st.button("🔒 Finalizar e Enviar Notas para o E-mail"):
-                    acertos = sum(1 for q in prova_aluno["questoes"] if respostas_aluno.get(q["id"]) == q["correta"])
-                    nota_calculada = round((acertos / len(prova_aluno["questoes"])) * 10, 2)
-                    
-                    st.session_state.entregas_sistema[aluno_atual] = {
-                        "materia": prova_aluno["materia"], 
-                        "tipo_prova": "Múltipla Escolha", 
-                        "nota": nota_calculada,
-                        "data_entrega": datetime.now().strftime("%d/%m/%Y %H:%M"), 
-                        "email_professor": prova_aluno.get("email_professor_remetente", ""),
-                        "feedback_ia": f"Gabarito processado com sucesso."
-                    }
-                    salvar_arquivo_drive("entregas.json", st.session_state.entregas_sistema)
-                    st.rerun()
-            else:
-                st.markdown(f"### 📋 Instruções do Desafio Técnico")
-                st.write(prova_aluno["questoes"][0]["enunciado"])
-                st.markdown("---")
-                st.subheader("📤 Área de Entrega do Arquivo Final")
-                arquivo_trabalho = st.file_uploader("Submeta sua planilha Excel:", type=["xlsx", "py", "pdf"])
-                
-                if st.button("🔒 Enviar para Correção Eletrônica Instantânea"):
-                    if arquivo_trabalho is not None:
-                        nota_ia_projeto = round(random.uniform(7.5, 10.0), 1)
-                        st.session_state.entregas_sistema[aluno_atual] = {
-                            "materia": prova_aluno["materia"], 
-                            "tipo_prova": "Projeto Prático", 
-                            "nota": nota_ia_projeto,
-                            "data_entrega": datetime.now().strftime("%d/%m/%Y %H:%M"),
-                            "email_professor": prova_aluno.get("email_professor_remetente", ""),
-                            "feedback_ia": f"Varredura estrutural concluída no arquivo `{arquivo_trabalho.name}`."
-                        }
-                        salvar_arquivo_drive("entregas.json", st.session_state.entregas_sistema)
-                        st.success("Arquivo processado e registrado com sucesso!")
-                        st.rerun()
-                    else:
-                        st.error("Anexe o arquivo desenvolvido antes de enviar.")
-else:
-    st.warning("⚠️ Acesso Restrito: Realize o login no menu lateral para liberar suas funções.")
+        if st.
