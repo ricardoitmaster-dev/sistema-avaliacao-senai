@@ -29,23 +29,32 @@ ID_PASTA_DRIVE = "1-bHDGxbJDWTzT30zL9S-oj0ktM-c60_R"
 SCOPES = ['https://www.googleapis.com/auth/drive']
 
 def obtener_servico_drive():
-    """Autentica na API do Google Drive tratando strings brutas e quebras de linha textuais"""
+    """Autentica na API do Google Drive usando dicionário TOML direto ou string JSON"""
     try:
+        # Se o usuário colou como um bloco de texto JSON sob a chave 'conteudo_json_puro'
         if "conteudo_json_puro" in st.secrets:
             texto_bruto = st.secrets["conteudo_json_puro"]
             info_chaves = json.loads(texto_bruto)
-            
-            # Reconverte os caracteres textuais '\n' em quebras de linha reais do padrão OpenSSL
-            if "private_key" in info_chaves:
-                info_chaves["private_key"] = info_chaves["private_key"].replace("\\n", "\n")
-
-            credenciais = service_account.Credentials.from_service_account_info(
-                info_chaves, scopes=SCOPES
-            )
-            return build('drive', 'v3', credentials=credenciais)
+        # Se o usuário colou a estrutura TOML direta (padrão nativo do Streamlit)
+        elif "type" in st.secrets:
+            info_chaves = dict(st.secrets)
         else:
-            st.error("🚨 Chave 'conteudo_json_puro' não encontrada nos Secrets.")
+            st.error("🚨 Nenhuma credencial válida do Google encontrada nos Secrets do Streamlit.")
             st.stop()
+            
+        # Reconverte os caracteres textuais '\n' em quebras de linha reais do padrão OpenSSL
+        if "private_key" in info_chaves:
+            # Garante que aspas extras ou espaços nas extremidades sejam limpos
+            private_key_str = str(info_chaves["private_key"]).strip()
+            # Substitui o literal '\n' por quebras reais caso venha compactado
+            if "\\n" in private_key_str:
+                private_key_str = private_key_str.replace("\\n", "\n")
+            info_chaves["private_key"] = private_key_str
+
+        credenciais = service_account.Credentials.from_service_account_info(
+            info_chaves, scopes=SCOPES
+        )
+        return build('drive', 'v3', credentials=credenciais)
     except Exception as e:
         st.error(f"🚨 Falha de Autenticação no Google Cloud: {e}")
         st.stop()
@@ -69,7 +78,7 @@ def ler_arquivo_drive(nome_arquivo, dados_padrao):
         return dados_padrao
 
 def salvar_arquivo_drive(nome_arquivo, dados):
-    """Grava um arquivo JSON diretamente na pasta do Google Drive de forma direta"""
+    """Grava um arquivo JSON diretamente na pasta do Google Drive"""
     try:
         drive_service = obtener_servico_drive()
         json_dados = json.dumps(dados, indent=4, ensure_ascii=False)
@@ -275,7 +284,7 @@ elif st.session_state.perfil_logado == "Professor":
                 if aluno_alvo:
                     st.session_state.provas_geradas[aluno_alvo] = {
                         "materia": materia, 
-                        "tipo_prova": tipo_prova, 
+                        "tipo_prova": type_prova, 
                         "questoes": questoes_disponiveis, 
                         "data_criacao": datetime.now().strftime("%d/%m/%Y %H:%M"),
                         "email_professor_remetente": st.session_state.email_comunicacao_logado
