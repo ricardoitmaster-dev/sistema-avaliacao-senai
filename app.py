@@ -30,10 +30,23 @@ ARQUIVO_CHAVES = "chaves_google.json"
 SCOPES = ['https://www.googleapis.com/auth/drive']
 
 def obter_servico_drive():
-    """Autentica no Google Cloud usando o arquivo de chaves local"""
+    """Autentica no Google Cloud usando o arquivo local ou os Secrets do Streamlit Cloud"""
+    # 1. Tenta carregar primeiro pelas configurações secretas da Nuvem (Streamlit Cloud)
+    if "google_credentials" in st.secrets:
+        try:
+            info_chaves = json.loads(st.secrets["google_credentials"]["json_data"])
+            credenciais = service_account.Credentials.from_service_account_info(
+                info_chaves, scopes=SCOPES
+            )
+            return build('drive', 'v3', credentials=credenciais)
+        except Exception as e:
+            st.sidebar.error(f"Erro ao ler credenciais dos Secrets: {e}")
+
+    # 2. Se não estiver na nuvem, busca o arquivo local tradicional
     if not os.path.exists(ARQUIVO_CHAVES):
         st.error(f"❌ Arquivo de credenciais '{ARQUIVO_CHAVES}' não encontrado.")
         st.stop()
+    
     credenciais = service_account.Credentials.from_service_account_file(
         ARQUIVO_CHAVES, scopes=SCOPES
     )
