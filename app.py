@@ -97,14 +97,14 @@ def salvar_arquivo_drive(nome_arquivo, dados):
             time.sleep(1)
 
 # ==============================================================================
-# BASE DE DADOS INTEGRADA (PADRÃO: ID CORPORATIVO VS EMAIL DE ALUNO)
+# BASE DE DADOS INTEGRADA (E-MAIL ATUALIZADO DO GESTOR)
 # ==============================================================================
 USUARIOS_PADRAO = {
     "sn1084433": {
         "nome": "Benedito Ricardo dos Santos", 
         "senha": "Celina2610**", 
         "perfil": "Gestor/Diretor",
-        "email_comunicacao": "ricardo.gestor@fiesp.com.br"
+        "email_comunicacao": "benedito.ricardo@sp.senai.br"
     },
     "sn1220001": {
         "nome": "Professor de Testes SENAI", 
@@ -117,22 +117,15 @@ USUARIOS_PADRAO = {
         "senha": "123", 
         "perfil": "Aluno",
         "email_comunicacao": "aluno.teste@gmail.com"
-    },
-    "elizandra.particular@hotmail.com": {
-        "nome": "Elizandra (Aluna)", 
-        "senha": "123", 
-        "perfil": "Aluno",
-        "email_comunicacao": "elizandra.particular@hotmail.com"
     }
 }
 
 if 'usuarios_cadastrados' not in st.session_state:
     st.session_state.usuarios_cadastrados = ler_arquivo_drive("usuarios.json", USUARIOS_PADRAO)
     
-    # Força a atualização do dicionário para incluir o padrão atualizado
-    if "sn1084433" not in st.session_state.usuarios_cadastrados or "aluno.teste@gmail.com" not in st.session_state.usuarios_cadastrados:
-        st.session_state.usuarios_cadastrados.update(USUARIOS_PADRAO)
-        salvar_arquivo_drive("usuarios.json", st.session_state.usuarios_cadastrados)
+    # Força a reconfiguração para atualizar o seu e-mail no arquivo em nuvem
+    st.session_state.usuarios_cadastrados["sn1084433"] = USUARIOS_PADRAO["sn1084433"]
+    salvar_arquivo_drive("usuarios.json", st.session_state.usuarios_cadastrados)
 
 if 'provas_geradas' not in st.session_state:
     st.session_state.provas_geradas = ler_arquivo_drive("provas.json", {})
@@ -177,7 +170,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# PORTAL DE ACESSO DINÂMICO (ID CORPORATIVO OU EMAIL)
+# PORTAL DE ACESSO DINÂMICO
 # ==============================================================================
 st.sidebar.title("🔐 Portal de Acesso SENAI")
 
