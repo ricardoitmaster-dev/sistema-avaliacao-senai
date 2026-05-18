@@ -31,11 +31,9 @@ SCOPES = ['https://www.googleapis.com/auth/drive']
 def obtener_servico_drive():
     """Autentica na API do Google Drive usando o JSON puro nos Secrets do Streamlit"""
     try:
-        # Método definitivo: Lê o JSON como uma string única e converte em dicionário
         if "gdrive_json" in st.secrets:
             info_chaves = json.loads(st.secrets["gdrive_json"])
         else:
-            # Sistema de contingência caso os campos estejam soltos
             info_chaves = dict(st.secrets)
             if "private_key" in info_chaves:
                 info_chaves["private_key"] = info_chaves["private_key"].replace("\\n", "\n")
@@ -49,7 +47,7 @@ def obtener_servico_drive():
         st.stop()
 
 def ler_arquivo_drive(nome_arquivo, dados_padrao):
-    """Busca um arquivo diretamente no Drive"""
+    """Busca um arquivo diretamente no Drive ou expõe o erro real de permissão"""
     try:
         drive_service = obtener_servico_drive()
         query = f"name = '{nome_arquivo}' and '{ID_PASTA_DRIVE}' in parents and trashed = false"
@@ -63,7 +61,8 @@ def ler_arquivo_drive(nome_arquivo, dados_padrao):
         conteudo = drive_service.files().get_media(fileId=file_id).execute()
         return json.loads(conteudo.decode('utf-8'))
     except Exception as e:
-        st.sidebar.warning(f"⚠️ Modo Local Ativo: Sem resposta estável do Google Drive para {nome_arquivo}.")
+        # Modificado para expor o diagnóstico real na barra lateral
+        st.sidebar.error(f"❌ Erro de Leitura no Google Drive para '{nome_arquivo}': {e}")
         return dados_padrao
 
 def salvar_arquivo_drive(nome_arquivo, dados):
@@ -86,7 +85,7 @@ def salvar_arquivo_drive(nome_arquivo, dados):
             drive_service.files().create(body=metadados_arquivo, media_body=media, fields='id').execute()
         st.toast(f"✅ Sincronizado no Google Drive: {nome_arquivo}")
     except Exception as e:
-        st.sidebar.error(f"🚨 Erro de conexão ao salvar {nome_arquivo} na nuvem.")
+        st.sidebar.error(f"🚨 Erro de Gravação no Google Drive para '{nome_arquivo}': {e}")
 
 # ==============================================================================
 # BASE DE DADOS INTEGRADA
@@ -96,7 +95,7 @@ USUARIOS_PADRAO = {
         "nome": "Benedito Ricardo dos Santos", 
         "senha": "Celina2610**", 
         "perfil": "Gestor/Diretor",
-        "email_comunicacao": "benedito.ricardo@sp.senai.br"
+        "email_comunicacao": "ricardo.gestor@fiesp.com.br"
     }
 }
 
