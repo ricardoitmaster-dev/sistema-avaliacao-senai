@@ -29,27 +29,41 @@ ID_PASTA_DRIVE = "1-bHDGxbJDWTzT30zL9S-oj0ktM-c60_R"
 SCOPES = ['https://www.googleapis.com/auth/drive']
 
 def obtener_servico_drive():
-    """Autentica na API do Google Drive usando dicionário TOML direto ou string JSON"""
+    """Autentica na API do Google Drive tratando flexivelmente os formatos do TOML"""
     try:
-        # Se o usuário colou como um bloco de texto JSON sob a chave 'conteudo_json_puro'
-        if "conteudo_json_puro" in st.secrets:
-            texto_bruto = st.secrets["conteudo_json_puro"]
-            info_chaves = json.loads(texto_bruto)
-        # Se o usuário colou a estrutura TOML direta (padrão nativo do Streamlit)
-        elif "type" in st.secrets:
-            info_chaves = dict(st.secrets)
-        else:
-            st.error("🚨 Nenhuma credencial válida do Google encontrada nos Secrets do Streamlit.")
-            st.stop()
+        # Tenta carregar o dicionário completo a partir dos Secrets
+        info_chaves = dict(st.secrets)
+        
+        # Caso as chaves estejam aninhadas ou encapsuladas erroneamente
+        if "private_key" not in info_chaves and "conteudo_json_puro" in st.secrets:
+            info_chaves = json.loads(st.secrets["conteudo_json_puro"])
             
-        # Reconverte os caracteres textuais '\n' em quebras de linha reais do padrão OpenSSL
-        if "private_key" in info_chaves:
-            # Garante que aspas extras ou espaços nas extremidades sejam limpos
-            private_key_str = str(info_chaves["private_key"]).strip()
-            # Substitui o literal '\n' por quebras reais caso venha compactado
-            if "\\n" in private_key_str:
-                private_key_str = private_key_str.replace("\\n", "\n")
-            info_chaves["private_key"] = private_key_str
+        if "private_key" not in info_chaves:
+            st.error("🚨 Nenhuma credencial válida ('private_key') encontrada nos Secrets do Streamlit.")
+            st.stop()
+
+        # Tratamento cirúrgico e definitivo da Chave Privada (OpenSSL/PEM)
+        p_key = str(info_chaves["private_key"])
+        
+        # Limpa aspas extras que podem vir se o usuário colar com aspas triplas ou duplas por engano
+        p_key = p_key.strip("'\" \n\r")
+        
+        # Corrige quebras de linhas literais escritas como texto "\n"
+        if "\\n" in p_key:
+            p_key = p_key.replace("\\n", "\n")
+            
+        # Reconstrói o cabeçalho/rodapé de forma limpa caso perca formatação
+        linhas = [line.strip() for line in p_key.split("\n") if line.strip()]
+        conteudo_limpo = []
+        
+        for lin in linhas:
+            if "BEGIN PRIVATE KEY" in lin or "END PRIVATE KEY" in lin:
+                continue
+            conteudo_limpo.append(lin.replace(" ", "")) # Remove espaços internos acidentais
+            
+        # Junta tudo no padrão estrito que a biblioteca de criptografia do Google exige
+        chave_formatada = "-----BEGIN PRIVATE KEY-----\n" + "\n".join(conteudo_limpo) + "\n-----END PRIVATE KEY-----\n"
+        info_chaves["private_key"] = chave_formatada
 
         credenciais = service_account.Credentials.from_service_account_info(
             info_chaves, scopes=SCOPES
@@ -74,7 +88,7 @@ def ler_arquivo_drive(nome_arquivo, dados_padrao):
         conteudo = drive_service.files().get_media(fileId=file_id).execute()
         return json.loads(conteudo.decode('utf-8'))
     except Exception as e:
-        st.sidebar.error(f"Aviso de Sincronização Local: {nome_arquivo}")
+        st.sidebar.warning(f"⚠️ Modo Local Ativo: Sem resposta estável do Google Drive para {nome_arquivo}.")
         return dados_padrao
 
 def salvar_arquivo_drive(nome_arquivo, dados):
@@ -95,8 +109,9 @@ def salvar_arquivo_drive(nome_arquivo, dados):
         else:
             metadados_arquivo = {'name': nome_arquivo, 'parents': [ID_PASTA_DRIVE]}
             drive_service.files().create(body=metadados_arquivo, media_body=media, fields='id').execute()
+        st.toast(f"✅ Sincronizado no Google Drive: {nome_arquivo}")
     except Exception as e:
-        st.error(f"🚨 Erro ao gravar dados no Drive: {e}")
+        st.sidebar.error(f"🚨 Erro de conexão ao salvar {nome_arquivo} na nuvem.")
 
 # ==============================================================================
 # BASE DE DADOS INTEGRADA
@@ -249,7 +264,7 @@ if st.session_state.perfil_logado == "Gestor/Diretor":
                     "email_comunicacao": email_comunicacao
                 }
                 salvar_arquivo_drive("usuarios.json", st.session_state.usuarios_cadastrados)
-                st.success(f"✅ Cadastro de **{novo_nome}** salvo com sucesso!")
+                st.success(f"✅ Cadastro de **{novo_nome}** processado com sucesso!")
                 time.sleep(1)
                 st.rerun()
             else:
@@ -284,7 +299,7 @@ elif st.session_state.perfil_logado == "Professor":
                 if aluno_alvo:
                     st.session_state.provas_geradas[aluno_alvo] = {
                         "materia": materia, 
-                        "tipo_prova": type_prova, 
+                        "tipo_prova": tipo_prova, 
                         "questoes": questoes_disponiveis, 
                         "data_criacao": datetime.now().strftime("%d/%m/%Y %H:%M"),
                         "email_professor_remetente": st.session_state.email_comunicacao_logado
