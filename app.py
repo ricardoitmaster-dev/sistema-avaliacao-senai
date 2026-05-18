@@ -28,26 +28,32 @@ from datetime import datetime
 ID_PASTA_DRIVE = "1-bHDGxbJDWTzT30zL9S-oj0ktM-c60_R"
 SCOPES = ['https://www.googleapis.com/auth/drive']
 
-def obter_servico_drive():
-    """Autentica de forma direta e segura usando a sub-chave json_data dos Secrets"""
+def obtener_servico_drive():
+    """Autentica na API do Google Drive tratando strings brutas e quebras de linha textuais"""
     try:
-        if "google_credentials" in st.secrets and "json_data" in st.secrets["google_credentials"]:
-            info_chaves = json.loads(st.secrets["google_credentials"]["json_data"])
+        if "conteudo_json_puro" in st.secrets:
+            texto_bruto = st.secrets["conteudo_json_puro"]
+            info_chaves = json.loads(texto_bruto)
+            
+            # Reconverte os caracteres textuais '\n' em quebras de linha reais do padrão OpenSSL
+            if "private_key" in info_chaves:
+                info_chaves["private_key"] = info_chaves["private_key"].replace("\\n", "\n")
+
             credenciais = service_account.Credentials.from_service_account_info(
                 info_chaves, scopes=SCOPES
             )
             return build('drive', 'v3', credentials=credenciais)
         else:
-            st.error("🚨 Formato incorreto nos Secrets: Falta a chave [google_credentials] com json_data.")
+            st.error("🚨 Chave 'conteudo_json_puro' não encontrada nos Secrets.")
             st.stop()
     except Exception as e:
-        st.error(f"🚨 Erro ao inicializar o Google Drive: {e}")
+        st.error(f"🚨 Falha de Autenticação no Google Cloud: {e}")
         st.stop()
 
 def ler_arquivo_drive(nome_arquivo, dados_padrao):
     """Busca um arquivo diretamente no Drive"""
     try:
-        drive_service = obter_servico_drive()
+        drive_service = obtener_servico_drive()
         query = f"name = '{nome_arquivo}' and '{ID_PASTA_DRIVE}' in parents and trashed = false"
         resultados = drive_service.files().list(q=query, fields="files(id)").execute()
         files = resultados.get('files', [])
@@ -59,13 +65,13 @@ def ler_arquivo_drive(nome_arquivo, dados_padrao):
         conteudo = drive_service.files().get_media(fileId=file_id).execute()
         return json.loads(conteudo.decode('utf-8'))
     except Exception as e:
-        st.sidebar.error(f"Aviso de Carregamento Local: {nome_arquivo}")
+        st.sidebar.error(f"Aviso de Sincronização Local: {nome_arquivo}")
         return dados_padrao
 
 def salvar_arquivo_drive(nome_arquivo, dados):
     """Grava um arquivo JSON diretamente na pasta do Google Drive de forma direta"""
     try:
-        drive_service = obter_servico_drive()
+        drive_service = obtener_servico_drive()
         json_dados = json.dumps(dados, indent=4, ensure_ascii=False)
         
         query = f"name = '{nome_arquivo}' and '{ID_PASTA_DRIVE}' in parents and trashed = false"
