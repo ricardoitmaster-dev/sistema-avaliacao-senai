@@ -34,7 +34,7 @@ def sanitizar_chave_pem(chave_raw: str) -> str:
     """
     Sanitização defensiva e robusta da private_key PEM.
     Resolve o erro InvalidData(InvalidByte) causado por formatação
-    inconsistente dentro do bloco de chave no Streamlit Secrets.
+    inconsente dentro do bloco de chave no Streamlit Secrets.
     """
     # 1. Substitui todas as variações de \n literal por quebra real
     chave = chave_raw.replace('\\n', '\n')
@@ -455,7 +455,7 @@ if st.session_state.perfil_logado == "Gestor/Diretor":
         st.subheader("👥 Usuários Cadastrados")
         lista_usuarios = [
             {
-                "ID":     uid.upper(),
+                "ID":      uid.upper(),
                 "Nome":   u.get("nome", "—"),
                 "Perfil": u.get("perfil", "—")
             }
@@ -518,15 +518,17 @@ elif st.session_state.perfil_logado == "Professor":
                 ["Múltipla Escolha", "Projeto Prático (Criação de Planilha/Arquivos)"]
             )
 
-            # Inicializa banco da matéria se não existir
-            if materia not in st.session_state.banco_questoes_ia:
+            # Inicializa banco da matéria se não existir ou se foi corrompido como boolean
+            if materia not in st.session_state.banco_questoes_ia or not isinstance(st.session_state.banco_questoes_ia[materia], list):
                 st.session_state.banco_questoes_ia[materia] = []
 
+            # Filtra garantindo que estamos operando sobre uma lista real
             questoes_da_materia = [
                 q for q in st.session_state.banco_questoes_ia[materia]
-                if q.get("tipo") == tipo_prova or
-                   (tipo_prova == "Projeto Prático (Criação de Planilha/Arquivos)"
-                    and q.get("tipo") == "Projeto Prático")
+                if isinstance(q, dict) and (
+                    q.get("tipo") == tipo_prova or
+                    (tipo_prova == "Projeto Prático (Criação de Planilha/Arquivos)" and q.get("tipo") == "Projeto Prático")
+                )
             ]
 
             # Cria questão padrão se não houver nenhuma
@@ -557,17 +559,17 @@ elif st.session_state.perfil_logado == "Professor":
             st.markdown(f"**Questões disponíveis para esta prova:** {len(questoes_da_materia)}")
 
             # Seleção do aluno alvo
-            alunos_disponiveis = {
+            disabled_alunos = {
                 uid: u["nome"]
                 for uid, u in st.session_state.usuarios_cadastrados.items()
                 if u.get("perfil") == "Aluno"
             }
 
-            if alunos_disponiveis:
+            if disabled_alunos:
                 aluno_selecionado = st.selectbox(
                     "Selecione o aluno:",
-                    options=list(alunos_disponiveis.keys()),
-                    format_func=lambda x: f"{alunos_disponiveis[x]} ({x.upper()})"
+                    options=list(disabled_alunos.keys()),
+                    format_func=lambda x: f"{disabled_alunos[x]} ({x.upper()})"
                 )
             else:
                 aluno_selecionado = st.text_input(
@@ -585,7 +587,7 @@ elif st.session_state.perfil_logado == "Professor":
                     salvar_arquivo_drive(
                         "provas.json", st.session_state.provas_geradas
                     )
-                    nome_aluno_alvo = alunos_disponiveis.get(
+                    nome_aluno_alvo = disabled_alunos.get(
                         aluno_selecionado, aluno_selecionado.upper()
                     )
                     st.success(
@@ -620,12 +622,13 @@ elif st.session_state.perfil_logado == "Professor":
 
         if st.button("💾 Salvar Questão no Banco"):
             if materia_q and enunciado_q:
-                if materia_q not in st.session_state.banco_questoes_ia:
+                # Segurança defensiva ao salvar nova questão
+                if materia_q not in st.session_state.banco_questoes_ia or not isinstance(st.session_state.banco_questoes_ia[materia_q], list):
                     st.session_state.banco_questoes_ia[materia_q] = []
 
                 novo_id_q = (
                     max(
-                        (q["id"] for q in st.session_state.banco_questoes_ia[materia_q]),
+                        (q["id"] for q in st.session_state.banco_questoes_ia[materia_q] if isinstance(q, dict)),
                         default=100
                     ) + 1
                 )
