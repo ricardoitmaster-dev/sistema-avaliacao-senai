@@ -1,42 +1,40 @@
 import os
 import sys
 import json
-import subprocess
 from datetime import datetime
 import streamlit as st
 import pandas as pd
+from streamlit_gsheets import GSheetsConnection
 
 # ==============================================================================
-# 1. INSTALAÇÃO AUTOMÁTICA DE DEPENDÊNCIAS DO GOOGLE SHEETS
-# ==============================================================================
-try:
-    from streamlit_gsheets import GSheetsConnection
-except ImportError:
-    # Mantido conforme sua estrutura original
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "streamlit-gsheets"])
-    from streamlit_gsheets import GSheetsConnection
-
-# ==============================================================================
-# 2. CONFIGURAÇÃO DE ACESSO NATIVO AO GOOGLE SHEETS
+# 1. CONFIGURAÇÃO E CONEXÃO SEGURA AO GOOGLE SHEETS
 # ==============================================================================
 URL_PLANILHA = "https://docs.google.com/spreadsheets/d/19xe6ySfOGbylZOtW4tULojW3AFLC6KR1TankzLx3cYQ/edit"
 
-def obter_conexao_segura():
-    """Garante que a chave privada do Google seja lida corretamente sem erros de ASN.1"""
+def obter_conexao():
+    """
+    Função definitiva para corrigir o erro ASN.1.
+    Remove indentações, espaços invisíveis e quebras de linha defeituosas 
+    da private_key antes de enviar para autenticação do Google.
+    """
     try:
-        # Puxa os secrets e limpa a chave privada forçando a quebra de linha correta
         segredos = dict(st.secrets["connections"]["gsheets"])
         if "private_key" in segredos:
-            segredos["private_key"] = segredos["private_key"].replace("\\n", "\n").replace("\r", "")
+            chave_bruta = segredos["private_key"]
+            # Quebra a chave em linhas e remove qualquer espaço em branco do início e fim de cada linha
+            linhas = chave_bruta.replace("\\n", "\n").split("\n")
+            linhas_limpas = [linha.strip() for linha in linhas if linha.strip()]
+            segredos["private_key"] = "\n".join(linhas_limpas)
+            
         return st.connection("gsheets", type=GSheetsConnection, **segredos)
     except Exception:
-        # Fallback padrão caso não precise da limpeza
+        # Fallback de segurança
         return st.connection("gsheets", type=GSheetsConnection)
 
 def ler_dados_sheets(aba, dados_padrao):
     """Lê a aba da planilha e converte de DataFrame para a estrutura de dicionário do app."""
     try:
-        conn = obter_conexao_segura()
+        conn = obter_conexao()
         df = conn.read(spreadsheet=URL_PLANILHA, worksheet=aba, ttl=0)
         
         if df.empty or df.dropna(how='all').empty:
@@ -71,7 +69,7 @@ def ler_dados_sheets(aba, dados_padrao):
 def salvar_dados_sheets(aba, dados):
     """Converte a estrutura de dicionário do app para DataFrame e atualiza a planilha."""
     try:
-        conn = obter_conexao_segura()
+        conn = obter_conexao()
         
         if aba == "usuarios":
             linhas = []
@@ -87,6 +85,7 @@ def salvar_dados_sheets(aba, dados):
                 linhas.append(linha)
             df = pd.DataFrame(linhas)
             
+        # O método conn.update irá reescrever a aba selecionada com os dados atualizados
         conn.update(spreadsheet=URL_PLANILHA, worksheet=aba, data=df)
         return True
     except Exception as e:
