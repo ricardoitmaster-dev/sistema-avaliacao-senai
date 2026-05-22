@@ -2,108 +2,82 @@ import os
 import sys
 import json
 import subprocess
-import tempfile
 from datetime import datetime
 import streamlit as st
 import pandas as pd
 
 # ==============================================================================
-# 1. INSTALAÇÃO AUTOMÁTICA DE DEPENDÊNCIAS
+# 1. INSTALAÇÃO AUTOMÁTICA DE DEPENDÊNCIAS DO GOOGLE SHEETS
 # ==============================================================================
 try:
-    from google.oauth2 import service_account
-    from googleapiclient.discovery import build
-    from googleapiclient.http import MediaFileUpload, MediaInMemoryUpload
+    from streamlit_gsheets import GSheetsConnection
 except ImportError:
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "google-auth", "google-api-python-client"])
-    from google.oauth2 import service_account
-    from googleapiclient.discovery import build
-    from googleapiclient.http import MediaFileUpload, MediaInMemoryUpload
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "streamlit-gsheets"])
+    from streamlit_gsheets import GSheetsConnection
 
 # ==============================================================================
-# 2. CONFIGURAÇÃO DE ACESSO AO GOOGLE DRIVE EM NUVEM
+# 2. CONFIGURAÇÃO DE ACESSO NATIVO AO GOOGLE SHEETS
 # ==============================================================================
-ID_PASTA_DRIVE = "1-bHDGxbJDWTzT30zL9S-oj0ktM-c60_R"
-SCOPES = ['https://www.googleapis.com/auth/drive']
+URL_PLANILHA = "https://docs.google.com/spreadsheets/d/19xe6ySfOGbylZOtW4tULojW3AFLC6KR1TankzLx3cYQ/edit"
 
-def sanitizar_chave_pem(chave_raw: str) -> str:
-    """Garante que a chave privada contenha quebras de linha limpas para o motor de criptografia."""
-    chave = str(chave_raw).strip()
-    chave = chave.replace('\\n', '\n').replace('\r', '')
-    marcador_inicio = "-----BEGIN PRIVATE KEY-----"
-    marcador_fim = "-----END PRIVATE KEY-----"
-    if marcador_inicio in chave and marcador_fim in chave:
-        corpo = chave.split(marcador_inicio)[1].split(marcador_fim)[0]
-        corpo_puro = "".join(corpo.split())
-        linhas_64 = [corpo_puro[i:i+64] for i in range(0, len(corpo_puro), 64)]
-        return f"{marcador_inicio}\n" + "\n".join(linhas_64) + f"\n{marcador_fim}\n"
-    return chave
-
-def obter_servico_drive():
-    """Tenta conectar ao serviço usando os Secrets cadastrados."""
-    if "gdrive" in st.secrets:
-        try:
-            info_chaves = dict(st.secrets["gdrive"])
-            if "private_key" in info_chaves:
-                info_chaves["private_key"] = sanitizar_chave_pem(info_chaves["private_key"])
-            credenciais = service_account.Credentials.from_service_account_info(info_chaves, scopes=SCOPES)
-            return build('drive', 'v3', credentials=credenciais, cache_discovery=False)
-        except Exception:
-            return None
-    return None
-
-def ler_arquivo_drive(nome_arquivo, dados_padrao):
-    """Busca o JSON na pasta do Drive. Caso falhe, retorna a base padrão estável."""
+def ler_dados_sheets(aba, dados_padrao):
+    """Lê a aba da planilha e converte de DataFrame para a estrutura de dicionário do app."""
     try:
-        drive_service = obter_servico_drive()
-        if drive_service is None:
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        df = conn.read(spreadsheet=URL_PLANILHA, worksheet=aba, ttl=0)
+        
+        if df.empty or df.dropna(how='all').empty:
             return dados_padrao
-        query = f"name = '{nome_arquivo}' and '{ID_PASTA_DRIVE}' in parents and trashed = false"
-        resultados = drive_service.files().list(q=query, fields="files(id)").execute()
-        files = resultados.get('files', [])
-        if not files:
-            return dados_padrao
-        file_id = files[0]['id']
-        conteudo = drive_service.files().get_media(fileId=file_id).execute()
-        return json.loads(conteudo.decode('utf-8'))
+        
+        resultado = {}
+        if aba == "usuarios":
+            for _, row in df.iterrows():
+                if pd.notna(row.get('id')):
+                    id_user = str(row['id']).strip().lower()
+                    resultado[id_user] = {
+                        "nome": str(row.get('nome', id_user)),
+                        "senha": str(row.get('senha', '')),
+                        "perfil": str(row.get('perfil', 'Aluno'))
+                    }
+            return resultado if resultado else dados_padrao
+            
+        elif aba in ["provas", "entregas"]:
+            for _, row in df.iterrows():
+                if pd.notna(row.get('aluno_alvo')):
+                    aluno = str(row['aluno_alvo']).strip().lower()
+                    dados_linha = row.to_dict()
+                    dados_linha.pop('aluno_alvo', None)
+                    # Limpa valores nulos do pandas para evitar incompatibilidades
+                    dados_linha = {k: (None if pd.isna(v) else v) for k, v in dados_linha.items()}
+                    resultado[aluno] = dados_linha
+            return resultado
+            
     except Exception:
         return dados_padrao
 
-def salvar_arquivo_drive(nome_arquivo, dados):
-    """Sincroniza os dados locais com a nuvem de forma resiliente."""
+def salvar_dados_sheets(aba, dados):
+    """Converte a estrutura de dicionário do app para DataFrame e atualiza a planilha."""
     try:
-        drive_service = obter_servico_drive()
-        if drive_service is None:
-            st.error("🔴 Erro: O serviço de conexão com o Drive não pôde ser iniciado.")
-            return False
+        conn = st.connection("gsheets", type=GSheetsConnection)
         
-        json_string = json.dumps(dados, indent=4, ensure_ascii=False)
-        
-        # Estratégia de Fallback: Criamos um arquivo temporário no container local
-        with tempfile.NamedTemporaryFile(mode='w+', delete=False, suffix='.json', encoding='utf-8') as f_temp:
-            f_temp.write(json_string)
-            caminho_temporario = f_temp.name
-        
-        query = f"name = '{nome_arquivo}' and '{ID_PASTA_DRIVE}' in parents and trashed = false"
-        resultados = drive_service.files().list(q=query, fields="files(id)").execute()
-        files = resultados.get('files', [])
-        
-        media = MediaFileUpload(caminho_temporario, mimetype='application/json', resumable=True)
-        
-        if files:
-            file_id = files[0]['id']
-            drive_service.files().update(fileId=file_id, media_body=media).execute()
-        else:
-            corpo_arquivo = {'name': nome_arquivo, 'parents': [ID_PASTA_DRIVE]}
-            drive_service.files().create(body=corpo_arquivo, media_body=media).execute()
+        if aba == "usuarios":
+            linhas = []
+            for k, v in dados.items():
+                linhas.append({"id": k, "nome": v["nome"], "senha": v["senha"], "perfil": v["perfil"]})
+            df = pd.DataFrame(linhas)
             
-        # Limpeza do arquivo temporário do servidor
-        if os.path.exists(caminho_temporario):
-            os.remove(caminho_temporario)
+        elif aba in ["provas", "entregas"]:
+            linhas = []
+            for k, v in dados.items():
+                linha = {"aluno_alvo": k}
+                linha.update(v)
+                linhas.append(linha)
+            df = pd.DataFrame(linhas)
+            
+        conn.update(spreadsheet=URL_PLANILHA, worksheet=aba, data=df)
         return True
     except Exception as e:
-        # EXIBIÇÃO DO ERRO REAL: Caso falte permissão na pasta, a API do Google dirá aqui
-        st.error(f"🔴 ERRO DETALHADO DO GOOGLE DRIVE: {str(e)}")
+        st.error(f"🔴 Erro ao salvar dados na aba '{aba}': {str(e)}")
         return False
 
 # ==============================================================================
@@ -127,11 +101,11 @@ if 'nome_exibicao' not in st.session_state:
 # Sincronização Dinâmica Pós-Login
 if st.session_state.usuario_logado is not None:
     if 'usuarios_cadastrados' not in st.session_state:
-        st.session_state.usuarios_cadastrados = ler_arquivo_drive("usuarios.json", USUARIOS_PADRAO)
+        st.session_state.usuarios_cadastrados = ler_dados_sheets("usuarios", USUARIOS_PADRAO)
     if 'provas_geradas' not in st.session_state:
-        st.session_state.provas_geradas = ler_arquivo_drive("provas.json", {})
+        st.session_state.provas_geradas = ler_dados_sheets("provas", {})
     if 'entregas_sistema' not in st.session_state:
-        st.session_state.entregas_sistema = ler_arquivo_drive("entregas.json", {})
+        st.session_state.entregas_sistema = ler_dados_sheets("entregas", {})
 else:
     st.session_state.usuarios_cadastrados = USUARIOS_PADRAO
     st.session_state.provas_geradas = {}
@@ -189,7 +163,7 @@ if st.session_state.usuario_logado is None:
         s_in = st.text_input("Senha de Acesso:", type="password")
         
         if st.button("🔓 Autenticar no Sistema"):
-            dados_drive = ler_arquivo_drive("usuarios.json", USUARIOS_PADRAO)
+            dados_drive = ler_dados_sheets("usuarios", USUARIOS_PADRAO)
             user_data = dados_drive.get(u_in)
             
             if user_data and user_data["senha"] == s_in:
@@ -197,8 +171,8 @@ if st.session_state.usuario_logado is None:
                 st.session_state.perfil_logado = user_data["perfil"]
                 st.session_state.nome_exibicao = user_data.get("nome", u_in)
                 st.session_state.usuarios_cadastrados = dados_drive
-                st.session_state.provas_geradas = ler_arquivo_drive("provas.json", {})
-                st.session_state.entregas_sistema = ler_arquivo_drive("entregas.json", {})
+                st.session_state.provas_geradas = ler_dados_sheets("provas", {})
+                st.session_state.entregas_sistema = ler_dados_sheets("entregas", {})
                 st.rerun()
             else:
                 st.error("Login ou senha incorretos.")
@@ -271,7 +245,7 @@ else:
                     })
                 st.dataframe(pd.DataFrame(dados_entregas), use_container_width=True, hide_index=True)
             else:
-                st.info("Nenhuma atividade de entrega registrada no banco de dados em nuvem até o momento.")
+                st.info("Nenhuma atividade de entrega registrada na planilha até o momento.")
             
         elif "👥 Usuários" in opcao_menu:
             st.subheader("👤 Gerenciamento de Usuários")
@@ -291,8 +265,8 @@ else:
                             "senha": nova_senha, 
                             "perfil": novo_perfil
                         }
-                        if salvar_arquivo_drive("usuarios.json", st.session_state.usuarios_cadastrados):
-                            st.success(f"Usuário '{novo_id}' gravado em nuvem com sucesso!")
+                        if salvar_dados_sheets("usuarios", st.session_state.usuarios_cadastrados):
+                            st.success(f"Usuário '{novo_id}' gravado na planilha com sucesso!")
                             st.rerun()
                     else:
                         st.error("Preencha todos os campos obrigatórios.")
@@ -351,7 +325,7 @@ else:
 
         elif "⚙ Configurações" in opcao_menu:
             st.subheader("⚙ Configurações Gerais")
-            st.code(ID_PASTA_DRIVE)
+            st.write(f"Planilha conectada: {URL_PLANILHA}")
 
     # ==============================================================================
     # RENDERIZAÇÃO DAS ÁREAS DE TRABALHO - PROFESSOR
@@ -384,12 +358,12 @@ else:
                 if materia and aluno_alvo:
                     st.session_state.provas_geradas[aluno_alvo] = {
                         "area": area, "curso": curso, "materia": materia, "turma": turma,
-                        "unidade": unidade, "tipo_prova": tipo_prova, "modo": modo_criacao,
+                        "unidade": unity if 'unity' in locals() else unidade, "tipo_prova": tipo_prova, "modo": modo_criacao,
                         "parametros": params_formulas, "status": "Liberada",
                         "data_criacao": datetime.now().strftime("%d/%m/%Y")
                     }
-                    salvar_arquivo_drive("provas.json", st.session_state.provas_geradas)
-                    st.success(f"Prova liberada e vinculada com sucesso para {aluno_alvo}!")
+                    if salvar_dados_sheets("provas", st.session_state.provas_geradas):
+                        st.success(f"Prova liberada e vinculada com sucesso para {aluno_alvo}!")
 
     # ==============================================================================
     # RENDERIZAÇÃO DAS ÁREAS DE TRABALHO - ALUNO
@@ -424,13 +398,16 @@ else:
                             "data_entrega": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
                             "arquivo_nome": arquivo_submetido.name
                         }
-                        salvar_arquivo_drive("entregas.json", st.session_state.entregas_sistema)
-                        st.success("Prova gravada e salva em nuvem!")
-                        st.rerun()
+                        if salvar_dados_sheets("entregas", st.session_state.entregas_sistema):
+                            st.success("Prova gravada e salva na planilha em nuvem!")
+                            st.rerun()
 
     # ==============================================================================
     # RENDERIZAÇÃO DAS ÁREAS DE TRABALHO - COORDENADOR
     # ==============================================================================
     elif st.session_state.perfil_logado == "Coordenador":
         st.write("Painel de acompanhamento pedagógico analítico (Modo Leitura).")
-        st.dataframe(pd.DataFrame([{"Aluno/ID": k, **v} for k, v in st.session_state.provas_geradas.items()]), use_container_width=True)
+        if len(st.session_state.provas_geradas) > 0:
+            st.dataframe(pd.DataFrame([{"Aluno/ID": k, **v} for k, v in st.session_state.provas_geradas.items()]), use_container_width=True)
+        else:
+            st.info("Nenhum dado de prova disponível para monitoramento.")
