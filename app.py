@@ -1,22 +1,13 @@
 import os
 import sys
 import json
-import subprocess
 from datetime import datetime
 import streamlit as st
 import pandas as pd
+from streamlit_gsheets import GSheetsConnection
 
 # ==============================================================================
-# 1. INSTALAÇÃO AUTOMÁTICA DE DEPENDÊNCIAS DO GOOGLE SHEETS
-# ==============================================================================
-try:
-    from streamlit_gsheets import GSheetsConnection
-except ImportError:
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "streamlit-gsheets"])
-    from streamlit_gsheets import GSheetsConnection
-
-# ==============================================================================
-# 2. CONFIGURAÇÃO DE ACESSO NATIVO AO GOOGLE SHEETS
+# 1. CONFIGURAÇÃO DE ACESSO NATIVO AO GOOGLE SHEETS
 # ==============================================================================
 URL_PLANILHA = "https://docs.google.com/spreadsheets/d/19xe6ySfOGbylZOtW4tULojW3AFLC6KR1TankzLx3cYQ/edit"
 
@@ -386,7 +377,7 @@ else:
                 
                 st.markdown("#### 📥 1. Downloads")
                 conteudo_prova_txt = f"PROVA DE {prova['materia']}\nTurma: {prova['turma']}\nTipo: {prova['tipo_prova']}\nParâmetros obrigatórios: {prova['parametros']}\nInsira seu e-mail e respostas abaixo."
-                st.download_button(label="📥 Baixar Arquivo da Prova", data=conteudo_prova_txt, fileName=f"Prova_{prova['materia']}_{aluno_atual}.txt")
+                st.download_button(label="📥 Baixar Arquivo da Prova", data=conteudo_prova_txt, file_name=f"Prova_{prova['materia']}_{aluno_atual}.txt")
                 
                 st.markdown("#### 📤 2. Entrega (Apenas 1 envio permitido)")
                 arquivo_submetido = st.file_uploader("Arraste e solte o arquivo da sua prova resolvida aqui:", type=["txt", "xlsx", "pdf"])
@@ -410,4 +401,4 @@ else:
         if len(st.session_state.provas_geradas) > 0:
             st.dataframe(pd.DataFrame([{"Aluno/ID": k, **v} for k, v in st.session_state.provas_geradas.items()]), use_container_width=True)
         else:
-            st.info("Nenhum dado de prova disponível para monitoramento.")e.provas_geradas.items()]), use_container_width=True)
+            st.info("Nenhum dado de prova disponível para monitoramento.")
