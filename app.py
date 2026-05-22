@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import subprocess
+import tempfile
 from datetime import datetime
 import streamlit as st
 import pandas as pd
@@ -12,12 +13,12 @@ import pandas as pd
 try:
     from google.oauth2 import service_account
     from googleapiclient.discovery import build
-    from googleapiclient.http import MediaInMemoryUpload
+    from googleapiclient.http import MediaFileUpload, MediaInMemoryUpload
 except ImportError:
     subprocess.check_call([sys.executable, "-m", "pip", "install", "google-auth", "google-api-python-client"])
     from google.oauth2 import service_account
     from googleapiclient.discovery import build
-    from googleapiclient.http import MediaInMemoryUpload
+    from googleapiclient.http import MediaFileUpload, MediaInMemoryUpload
 
 # ==============================================================================
 # 2. CONFIGURAÇÃO DE ACESSO AO GOOGLE DRIVE EM NUVEM
@@ -26,7 +27,7 @@ ID_PASTA_DRIVE = "1-bHDGxbJDWTzT30zL9S-oj0ktM-c60_R"
 SCOPES = ['https://www.googleapis.com/auth/drive']
 
 def sanitizar_chave_pem(chave_raw: str) -> str:
-    """Reconstrói rigorosamente o bloco PEM removendo ruídos de colagem."""
+    """Garante que a chave privada contenha quebras de linha limpas para o motor de criptografia."""
     chave = str(chave_raw).strip()
     chave = chave.replace('\\n', '\n').replace('\r', '')
     marcador_inicio = "-----BEGIN PRIVATE KEY-----"
@@ -39,7 +40,7 @@ def sanitizar_chave_pem(chave_raw: str) -> str:
     return chave
 
 def obter_servico_drive():
-    """Conecta de forma segura garantindo que os Secrets existam."""
+    """Tenta conectar ao serviço usando os Secrets cadastrados."""
     if "gdrive" in st.secrets:
         try:
             info_chaves = dict(st.secrets["gdrive"])
@@ -52,6 +53,7 @@ def obter_servico_drive():
     return None
 
 def ler_arquivo_drive(nome_arquivo, dados_padrao):
+    """Busca o JSON na pasta do Drive. Caso falhe, retorna a base padrão estável."""
     try:
         drive_service = obter_servico_drive()
         if drive_service is None:
@@ -68,34 +70,37 @@ def ler_arquivo_drive(nome_arquivo, dados_padrao):
         return dados_padrao
 
 def salvar_arquivo_drive(nome_arquivo, dados):
-    """Grava os dados de forma robusta e limpa no Google Drive (Correção de Persistência)."""
+    """Sincroniza os dados locais com a nuvem de forma resiliente."""
     try:
         drive_service = obter_servico_drive()
         if drive_service is None:
             return False
         
-        # Converte o dicionário para string JSON formatada corretamente em UTF-8
         json_string = json.dumps(dados, indent=4, ensure_ascii=False)
-        json_bytes = json_string.encode('utf-8')
         
-        # Procura se o arquivo já existe na pasta destino
+        # Estratégia de Fallback: Criamos um arquivo temporário no container local
+        with tempfile.NamedTemporaryFile(mode='w+', delete=False, suffix='.json', encoding='utf-8') as f_temp:
+            f_temp.write(json_string)
+            caminho_temporario = f_temp.name
+        
         query = f"name = '{nome_arquivo}' and '{ID_PASTA_DRIVE}' in parents and trashed = false"
         resultados = drive_service.files().list(q=query, fields="files(id)").execute()
         files = resultados.get('files', [])
         
-        media = MediaInMemoryUpload(json_bytes, mimetype='application/json', resumable=True)
+        media = MediaFileUpload(caminho_temporario, mimetype='application/json', resumable=True)
         
         if files:
-            # Se o arquivo já existe, atualiza o conteúdo do ID encontrado
             file_id = files[0]['id']
             drive_service.files().update(fileId=file_id, media_body=media).execute()
         else:
-            # Caso contrário, cria um novo arquivo dentro da pasta especificada
             corpo_arquivo = {'name': nome_arquivo, 'parents': [ID_PASTA_DRIVE]}
             drive_service.files().create(body=corpo_arquivo, media_body=media).execute()
+            
+        # Limpeza do arquivo temporário do servidor
+        if os.path.exists(caminho_temporario):
+            os.remove(caminho_temporario)
         return True
-    except Exception as e:
-        st.sidebar.error(f"⚠️ Erro ao sincronizar nuvem: {e}")
+    except Exception:
         return False
 
 # ==============================================================================
@@ -116,7 +121,7 @@ if 'perfil_logado' not in st.session_state:
 if 'nome_exibicao' not in st.session_state:
     st.session_state.nome_exibicao = None
 
-# Sincronização e Inicialização Segura dos Dados
+# Sincronização Dinâmica Pós-Login
 if st.session_state.usuario_logado is not None:
     if 'usuarios_cadastrados' not in st.session_state:
         st.session_state.usuarios_cadastrados = ler_arquivo_drive("usuarios.json", USUARIOS_PADRAO)
@@ -278,15 +283,13 @@ else:
                 
                 if st.button("Salvar Usuário"):
                     if novo_id and novo_nome and nova_senha:
-                        # 1. Altera localmente na sessão ativa
                         st.session_state.usuarios_cadastrados[novo_id] = {
                             "nome": novo_nome, 
                             "senha": nova_senha, 
                             "perfil": novo_perfil
                         }
-                        # 2. Força a gravação síncrona no arquivo JSON do Drive
                         if salvar_arquivo_drive("usuarios.json", st.session_state.usuarios_cadastrados):
-                            st.success(f"Usuário '{novo_id}' persistido com sucesso no Google Drive!")
+                            st.success(f"Usuário '{novo_id}' gravado em nuvem com sucesso!")
                             st.rerun()
                         else:
                             st.error("Erro interno ao tentar gravar dados no arquivo remoto do Google Drive.")
