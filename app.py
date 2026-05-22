@@ -74,6 +74,7 @@ def salvar_arquivo_drive(nome_arquivo, dados):
     try:
         drive_service = obter_servico_drive()
         if drive_service is None:
+            st.error("🔴 Erro: O serviço de conexão com o Drive não pôde ser iniciado.")
             return False
         
         json_string = json.dumps(dados, indent=4, ensure_ascii=False)
@@ -100,7 +101,9 @@ def salvar_arquivo_drive(nome_arquivo, dados):
         if os.path.exists(caminho_temporario):
             os.remove(caminho_temporario)
         return True
-    except Exception:
+    except Exception as e:
+        # EXIBIÇÃO DO ERRO REAL: Caso falte permissão na pasta, a API do Google dirá aqui
+        st.error(f"🔴 ERRO DETALHADO DO GOOGLE DRIVE: {str(e)}")
         return False
 
 # ==============================================================================
@@ -291,8 +294,6 @@ else:
                         if salvar_arquivo_drive("usuarios.json", st.session_state.usuarios_cadastrados):
                             st.success(f"Usuário '{novo_id}' gravado em nuvem com sucesso!")
                             st.rerun()
-                        else:
-                            st.error("Erro interno ao tentar gravar dados no arquivo remoto do Google Drive.")
                     else:
                         st.error("Preencha todos os campos obrigatórios.")
             
