@@ -1,20 +1,42 @@
 import os
 import sys
 import json
+import subprocess
 from datetime import datetime
 import streamlit as st
 import pandas as pd
-from streamlit_gsheets import GSheetsConnection
 
 # ==============================================================================
-# 1. CONFIGURAÇÃO DE ACESSO NATIVO AO GOOGLE SHEETS
+# 1. INSTALAÇÃO AUTOMÁTICA DE DEPENDÊNCIAS DO GOOGLE SHEETS
+# ==============================================================================
+try:
+    from streamlit_gsheets import GSheetsConnection
+except ImportError:
+    # Mantido conforme sua estrutura original
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "streamlit-gsheets"])
+    from streamlit_gsheets import GSheetsConnection
+
+# ==============================================================================
+# 2. CONFIGURAÇÃO DE ACESSO NATIVO AO GOOGLE SHEETS
 # ==============================================================================
 URL_PLANILHA = "https://docs.google.com/spreadsheets/d/19xe6ySfOGbylZOtW4tULojW3AFLC6KR1TankzLx3cYQ/edit"
+
+def obter_conexao_segura():
+    """Garante que a chave privada do Google seja lida corretamente sem erros de ASN.1"""
+    try:
+        # Puxa os secrets e limpa a chave privada forçando a quebra de linha correta
+        segredos = dict(st.secrets["connections"]["gsheets"])
+        if "private_key" in segredos:
+            segredos["private_key"] = segredos["private_key"].replace("\\n", "\n").replace("\r", "")
+        return st.connection("gsheets", type=GSheetsConnection, **segredos)
+    except Exception:
+        # Fallback padrão caso não precise da limpeza
+        return st.connection("gsheets", type=GSheetsConnection)
 
 def ler_dados_sheets(aba, dados_padrao):
     """Lê a aba da planilha e converte de DataFrame para a estrutura de dicionário do app."""
     try:
-        conn = st.connection("gsheets", type=GSheetsConnection)
+        conn = obter_conexao_segura()
         df = conn.read(spreadsheet=URL_PLANILHA, worksheet=aba, ttl=0)
         
         if df.empty or df.dropna(how='all').empty:
@@ -49,7 +71,7 @@ def ler_dados_sheets(aba, dados_padrao):
 def salvar_dados_sheets(aba, dados):
     """Converte a estrutura de dicionário do app para DataFrame e atualiza a planilha."""
     try:
-        conn = st.connection("gsheets", type=GSheetsConnection)
+        conn = obter_conexao_segura()
         
         if aba == "usuarios":
             linhas = []
@@ -349,7 +371,7 @@ else:
                 if materia and aluno_alvo:
                     st.session_state.provas_geradas[aluno_alvo] = {
                         "area": area, "curso": curso, "materia": materia, "turma": turma,
-                        "unidade": unity if 'unity' in locals() else unidade, "tipo_prova": tipo_prova, "modo": modo_criacao,
+                        "unidade": unidade, "tipo_prova": tipo_prova, "modo": modo_criacao,
                         "parametros": params_formulas, "status": "Liberada",
                         "data_criacao": datetime.now().strftime("%d/%m/%Y")
                     }
