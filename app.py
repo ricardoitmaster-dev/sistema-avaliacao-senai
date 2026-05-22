@@ -1,220 +1,287 @@
 import os
 import sys
+import json
 import subprocess
-import time
+from datetime import datetime
 import streamlit as st
 import pandas as pd
-import json
-import random
-from datetime import datetime
 
 # ==============================================================================
-# INSTALAÇÃO AUTOMÁTICA DE DEPENDÊNCIAS
+# 1. GERENCIAMENTO DE DEPENDÊNCIAS CRÍTICAS (P0)
 # ==============================================================================
 try:
     from google.oauth2 import service_account
     from googleapiclient.discovery import build
     from googleapiclient.http import MediaInMemoryUpload
 except ImportError:
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "google-auth", "google-api-python-client"])
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "--quiet", "google-auth", "google-api-python-client"])
     from google.oauth2 import service_account
     from googleapiclient.discovery import build
     from googleapiclient.http import MediaInMemoryUpload
 
 # ==============================================================================
-# CONFIGURAÇÃO DE ACESSO AO GOOGLE DRIVE EM NUVEM
+# 2. CONFIGURAÇÕES GLOBAIS E IDENTIDADE VISUAL (BMW Portinari Blue & Gold)
+# ==============================================================================
+st.set_page_config(
+    page_title="SUATS | SENAI-122",
+    page_icon="🏆",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+def injetar_css_corporativo():
+    st.markdown("""
+        <style>
+        /* Paleta Executiva: Dark Mode Base, BMW Portinari Blue, Gold e Black */
+        .stApp {
+            background-color: #0F111A;
+            color: #F4F4F6;
+        }
+        [data-testid="stSidebar"] {
+            background-color: #000000;
+            border-right: 3px solid #D4AF37;
+        }
+        /* Títulos e Elementos de Destaque */
+        h1, h2, h3 {
+            color: #D4AF37 !important;
+            font-family: 'Arial Black', sans-serif;
+        }
+        .sub-header-azul {
+            color: #002868 !important;
+            font-weight: bold;
+        }
+        /* Customização de Botões Master */
+        .stButton > button {
+            background-color: #D4AF37 !important;
+            color: #000000 !important;
+            font-weight: bold !important;
+            border-radius: 4px !important;
+            border: 1px solid #D4AF37 !important;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+        .stButton > button:hover {
+            background-color: #002868 !important;
+            color: #ffffff !important;
+            border: 1px solid #002868 !important;
+        }
+        /* Customização de Inputs */
+        .stTextInput > div > div > input, .stSelectbox > div > div, .stTextArea textarea {
+            background-color: #161925 !important;
+            color: #F4F4F6 !important;
+            border: 1px solid #002868 !important;
+            border-radius: 4px !important;
+        }
+        .stTextInput > div > div > input:focus {
+            border: 1px solid #D4AF37 !important;
+        }
+        /* Cards Informativos (Dashboards) */
+        .metric-card {
+            background-color: #161925;
+            border-left: 5px solid #D4AF37;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+injetar_css_corporativo()
+
+# ==============================================================================
+# 3. SEGURANÇA: SANITIZAÇÃO DA CHAVE PEM E CONEXÃO DRIVE (P0)
 # ==============================================================================
 ID_PASTA_DRIVE = "1-bHDGxbJDWTzT30zL9S-oj0ktM-c60_R"
-ARQUIVO_CHAVES = "chaves_google.json"
 SCOPES = ['https://www.googleapis.com/auth/drive']
 
 def sanitizar_chave_pem(chave_raw: str) -> str:
+    """Corrige quebras de linha e formatação do bloco de chave privada Google Cloud."""
     chave = chave_raw.replace('\\n', '\n').replace('\r', '')
     marcador_inicio = "-----BEGIN PRIVATE KEY-----"
-    marcador_fim    = "-----END PRIVATE KEY-----"
+    marcador_fim = "-----END PRIVATE KEY-----"
+    
     if marcador_inicio in chave and marcador_fim in chave:
-        partes       = chave.split(marcador_inicio)
-        corpo_e_fim  = partes[1].split(marcador_fim)
-        corpo_base64  = corpo_e_fim[0]
-        corpo_limpo = "".join(corpo_base64.split())
-        linhas_64   = "\n".join([corpo_limpo[i:i+64] for i in range(0, len(corpo_limpo), 64)])
-        chave = f"{marcador_inicio}\n{linhas_64}\n{marcador_fim}\n"
+        corpo = chave.split(marcador_inicio)[1].split(marcador_fim)[0]
+        corpo_limpo = "".join(corpo.split())
+        linhas_64 = "\n".join([corpo_limpo[i:i+64] for i in range(0, len(corpo_limpo), 64)])
+        return f"{marcador_inicio}\n{linhas_64}\n{marcador_fim}\n"
     return chave
 
+@st.cache_resource(show_spinner=False)
 def obter_servico_drive():
+    """Instancia o cliente da API do Google Drive utilizando cache táctico."""
     if "gdrive" in st.secrets:
         try:
             info_chaves = dict(st.secrets["gdrive"])
             if "private_key" in info_chaves:
                 info_chaves["private_key"] = sanitizar_chave_pem(info_chaves["private_key"])
             credenciais = service_account.Credentials.from_service_account_info(info_chaves, scopes=SCOPES)
-            return build('drive', 'v3', credentials=credenciais)
+            return build('drive', 'v3', credentials=credenciais, cache_discovery=False)
         except Exception as e:
-            st.sidebar.error(f"Erro ao ler Secrets: {e}")
-            return None
-    if not os.path.exists(ARQUIVO_CHAVES):
-        return None
-    try:
-        credenciais = service_account.Credentials.from_service_account_file(ARQUIVO_CHAVES, scopes=SCOPES)
-        return build('drive', 'v3', credentials=credenciais)
-    except Exception:
-        return None
+            st.error(f"Erro crítico nas credenciais de nuvem: {e}")
+    return None
 
-def ler_arquivo_drive(nome_arquivo, dados_padrao):
+def ler_arquivo_json_drive(nome_arquivo, dados_padrao):
+    """Lê dados estruturados diretamente da árvore de diretórios do Drive."""
     try:
-        drive_service = obter_servico_drive()
-        if drive_service is None: return None
+        service = obter_servico_drive()
+        if not service:
+            return dados_padrao
         query = f"name = '{nome_arquivo}' and '{ID_PASTA_DRIVE}' in parents and trashed = false"
-        resultados = drive_service.files().list(q=query, fields="files(id)").execute()
-        files = resultados.get('files', [])
-        if not files: return dados_padrao
-        file_id = files[0]['id']
-        conteudo = drive_service.files().get_media(fileId=file_id).execute()
+        resultados = service.files().list(q=query, fields="files(id)").execute()
+        arquivos = resultados.get('files', [])
+        
+        if not arquivos:
+            return dados_padrao
+            
+        file_id = arquivos[0]['id']
+        conteudo = service.files().get_media(fileId=file_id).execute()
         return json.loads(conteudo.decode('utf-8'))
     except Exception:
-        return None
+        return dados_padrao
 
-def salvar_arquivo_drive(nome_arquivo, dados):
+def salvar_arquivo_json_drive(nome_arquivo, dados):
+    """Persiste payloads de forma síncrona na nuvem."""
     try:
-        drive_service = obter_servico_drive()
-        if drive_service is None: return
+        service = obter_servico_drive()
+        if not service:
+            return
         json_dados = json.dumps(dados, indent=4, ensure_ascii=False)
         query = f"name = '{nome_arquivo}' and '{ID_PASTA_DRIVE}' in parents and trashed = false"
-        resultados = drive_service.files().list(q=query, fields="files(id)").execute()
-        files = resultados.get('files', [])
+        resultados = service.files().list(q=query, fields="files(id)").execute()
+        arquivos = resultados.get('files', [])
+        
         media = MediaInMemoryUpload(json_dados.encode('utf-8'), mimetype='application/json')
-        if files:
-            drive_service.files().update(fileId=files[0]['id'], media_body=media).execute()
+        if arquivos:
+            service.files().update(fileId=arquivos[0]['id'], media_body=media).execute()
         else:
-            drive_service.files().create(body={'name': nome_arquivo, 'parents': [ID_PASTA_DRIVE]}, media_body=media).execute()
+            service.files().create(body={'name': nome_arquivo, 'parents': [ID_PASTA_DRIVE]}, media_body=media).execute()
     except Exception as e:
-        st.sidebar.error(f"🚨 Erro ao salvar {nome_arquivo}: {e}")
+        st.sidebar.error(f"Erro de persistência em nuvem ({nome_arquivo}): {e}")
 
 # ==============================================================================
-# DADOS INICIAIS E SESSION STATE
+# 4. ORQUESTRAÇÃO DE ESTADO E CONCORRÊNCIA (P0)
 # ==============================================================================
-USUARIOS_PADRAO = {
+USUARIOS_HARDCODED = {
     "sn1084433": {"nome": "Benedito Ricardo dos Santos", "senha": "Celina2610**", "perfil": "Gestor/Diretor"},
     "sn1220001": {"nome": "Professor de Testes SENAI", "senha": "122", "perfil": "Professor"},
     "aluno_ricardo": {"nome": "Ricardo (Aluno)", "senha": "123", "perfil": "Aluno"},
-    "aluno_elizandra": {"nome": "Elizandra (Aluna)", "senha": "123", "perfil": "Aluno"}
+    "aluno_elizandra": {"nome": "Elizandra (Aluna)", "senha": "123", "perfil": "Aluno"},
+    "coord_teste": {"nome": "Coordenador Técnico", "senha": "122", "perfil": "Coordenador"}
 }
 
-if 'usuarios_cadastrados' not in st.session_state:
-    carregado = ler_arquivo_drive("usuarios.json", USUARIOS_PADRAO)
-    st.session_state.usuarios_cadastrados = carregado if carregado is not None else USUARIOS_PADRAO
-    if "sn1084433" not in st.session_state.usuarios_cadastrados:
-        st.session_state.usuarios_cadastrados.update(USUARIOS_PADRAO)
-        salvar_arquivo_drive("usuarios.json", st.session_state.usuarios_cadastrados)
+# Inicialização limpa e centralizada de estados locais
+if 'suats_state' not in st.session_state:
+    st.session_state.suats_state = {
+        "usuario_logado": None,
+        "perfil_logado": None,
+        "nome_exibicao": None,
+        "usuarios_cache": ler_arquivo_json_drive("usuarios.json", USUARIOS_HARDCODED),
+        "provas_cache": ler_arquivo_json_drive("provas.json", {}),
+        "entregas_cache": ler_arquivo_json_drive("entregas.json", {})
+    }
 
-if 'provas_geradas' not in st.session_state:
-    carregado = ler_arquivo_drive("provas.json", {})
-    st.session_state.provas_geradas = carregado if carregado is not None else {}
+state = st.session_state.suats_state
 
-if 'entregas_sistema' not in st.session_state:
-    carregado = ler_arquivo_drive("entregas.json", {})
-    st.session_state.entregas_sistema = carregado if carregado is not None else {}
-
-if 'banco_questoes_ia' not in st.session_state:
-    st.session_state.banco_questoes_ia = {"EXCEL AVANÇADO": [{"id": 101, "tipo": "Múltipla Escolha", "enunciado": "Qual função combina INDEX e MATCH?", "alternativas": {"A": "PROCV", "B": "INDICE+CORRESP", "C": "DESLOC", "D": "FILTRO"}, "correta": "B"}]}
-
-for key in ['usuario_logado', 'perfil_logado', 'nome_exibicao']:
-    if key not in st.session_state: st.session_state[key] = None
+# Força sincronia se a conta mestre administrativa sumir do cache
+if "sn1084433" not in state["usuarios_cache"]:
+    state["usuarios_cache"].update(USUARIOS_HARDCODED)
+    salvar_arquivo_json_drive("usuarios.json", state["usuarios_cache"])
 
 # ==============================================================================
-# INTERFACE VISUAL
+# 5. ROTAS E INTERFACES EXCLUSIVAS (BLUEPRINT FASE 1)
 # ==============================================================================
-st.set_page_config(page_title="Sistema de Avaliação Técnica SENAI", page_icon="🏆", layout="wide")
 
-st.markdown("""
-    <style>
-    .stApp { background-color: #0F111A; color: #F4F4F6; }
-    [data-testid="stSidebar"] { background-color: #161925; border-right: 2px solid #D4AF37; }
-    h1, h2, h3 { color: #D4AF37 !important; }
-    .stButton > button { background-color: #D4AF37 !important; color: #0F111A !important; font-weight: bold !important; border-radius: 6px !important; }
-    .stTextInput > div > div > input, .stSelectbox > div > div, .stTextArea textarea { background-color: #1E2233 !important; color: #F4F4F6 !important; border: 1px solid #D4AF37 !important; }
-    </style>
-""", unsafe_allow_html=True)
+def view_login():
+    """Portal de Acesso Corporativo com proteção contra multiplos cliques."""
+    st.markdown("<h2 style='text-align: center;'>🔐 SUATS | Portal de Acesso</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #cbd5e1;'>Insira suas credenciais corporativas SENAI para acessar a plataforma.</p>", unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        with st.form(key="form_login"):
+            input_user = st.text_input("Login Corporativo (Ex: snXXXXXXX):").strip().lower()
+            input_pass = st.text_input("Senha de Acesso:", type="password")
+            btn_submit = st.form_submit_button("🔓 Autenticar no Sistema")
+            
+            if btn_submit:
+                user_info = state["usuarios_cache"].get(input_user)
+                if user_info and user_info["senha"] == input_pass:
+                    state["usuario_logado"] = input_user
+                    state["perfil_logado"] = user_info["perfil"]
+                    state["nome_exibicao"] = user_info["nome"]
+                    st.success("Autenticação bem-sucedida! Redirecionando...")
+                    st.rerun()
+                else:
+                    st.error("Credenciais inválidas ou usuário inativo.")
+        
+        st.markdown("<p style='text-align:center; font-size:12px; color:#64748b;'>Suporte Técnico? Acione o Helpdesk da Unidade Senai-122.</p>", unsafe_allow_html=True)
 
-# PORTAL DE ACESSO
-st.sidebar.markdown("<h2 style='text-align:center; color:#D4AF37;'>🔐 Portal SENAI</h2>", unsafe_allow_html=True)
-if st.session_state.usuario_logado is None:
-    if 'login_key' not in st.session_state: st.session_state.login_key = 0
-    u_in = st.sidebar.text_input("Login Corporativo:", key=f"user_{st.session_state.login_key}").strip().lower()
-    s_in = st.sidebar.text_input("Senha:", type="password", key=f"pass_{st.session_state.login_key}")
-    if st.sidebar.button("🔓 Autenticar"):
-        user_data = st.session_state.usuarios_cadastrados.get(u_in)
-        if user_data and user_data["senha"] == s_in:
-            st.session_state.usuario_logado = u_in
-            st.session_state.perfil_logado = user_data["perfil"]
-            st.session_state.nome_exibicao = user_data.get("nome", u_in)
-            st.session_state.login_key += 1
-            st.rerun()
-        else: st.sidebar.error("Login ou senha incorretos.")
+def view_gestor():
+    st.markdown(f"<h2>📊 Painel Executivo | Direção & Gestão</h2>", unsafe_allow_html=True)
+    st.info(f"Contexto operacional: {state['nome_exibicao']}")
+    # Conteúdo analítico e tabelas corporativas (Adicionado na próxima Sprint)
+
+def view_professor():
+    st.markdown("<h2>👨‍🏫 Central de Engenharia de Avaliações</h2>", unsafe_allow_html=True)
+    st.info(f"Instrutor conectado: {state['nome_exibicao']}")
+    # Assistente Wizard de criação de provas (Adicionado na próxima Sprint)
+
+def view_aluno():
+    st.markdown("<h2>📝 Terminal de Provas e Exames Técnicos</h2>", unsafe_allow_html=True)
+    st.info(f"Estudante: {state['nome_exibicao']}")
+    # Interface restrita de download e upload único (Adicionado na próxima Sprint)
+
+def view_coordenador():
+    st.markdown("<h2>🏫 Portal de Monitoramento da Coordenação</h2>", unsafe_allow_html=True)
+    st.info(f"Visualização Analítica: {state['nome_exibicao']}")
+    # Painel Read-only de turmas e desempenho (Adicionado na próxima Sprint)
+
+# ==============================================================================
+# 6. ORQUESTRAÇÃO DE ROTAS NO MENU LATERAL (SIDEBAR)
+# ==============================================================================
+if state["usuario_logado"] is None:
+    view_login()
 else:
-    st.sidebar.success(f"Conectado: **{st.session_state.nome_exibicao}**")
-    if st.sidebar.button("🚪 Encerrar Sessão"):
-        for key in ['usuario_logado', 'perfil_logado', 'nome_exibicao']: st.session_state[key] = None
-        st.rerun()
-
-st.title("🏆 SENAI-122 | Sistema Unificado de Avaliações")
-st.markdown("---")
-
-# ==============================================================================
-# PAINEL GESTOR
-# ==============================================================================
-if st.session_state.perfil_logado == "Gestor/Diretor":
-    st.header("📊 Painel Analítico")
-    aba1, aba2, aba3 = st.tabs(["📈 Relatório", "👤 Usuários", "📋 Provas"])
-    with aba1:
-        st.metric("Total de Provas", len(st.session_state.provas_geradas))
-        if st.session_state.entregas_sistema:
-            st.dataframe(pd.DataFrame([{"ID": uid, **d} for uid, d in st.session_state.entregas_sistema.items()]))
-    with aba2:
-        novo_id = st.text_input("Novo Login:")
-        novo_nome = st.text_input("Nome:")
-        nova_senha = st.text_input("Senha:", type="password")
-        if st.button("Salvar Usuário"):
-            if novo_id and novo_nome and nova_senha:
-                st.session_state.usuarios_cadastrados[novo_id] = {"nome": novo_nome, "senha": nova_senha, "perfil": "Aluno"}
-                salvar_arquivo_drive("usuarios.json", st.session_state.usuarios_cadastrados)
-                st.success("Salvo!")
-        st.dataframe(pd.DataFrame([{"ID": k, **v} for k, v in st.session_state.usuarios_cadastrados.items()]))
-    with aba3:
-        st.write(st.session_state.provas_geradas)
-
-# ==============================================================================
-# PAINEL PROFESSOR
-# ==============================================================================
-elif st.session_state.perfil_logado == "Professor":
-    st.header("👨‍🏫 Central do Professor")
-    aba1, aba2 = st.tabs(["⚙️ Criar Prova", "📝 Banco de Questões"])
-    with aba1:
-        materia = st.text_input("Matéria:").strip().upper()
-        if materia:
-            aluno = st.selectbox("Aluno:", list(st.session_state.usuarios_cadastrados.keys()))
-            if st.button("Liberar Prova"):
-                st.session_state.provas_geradas[aluno] = {"materia": materia, "tipo_prova": "Múltipla Escolha", "questoes": st.session_state.banco_questoes_ia.get(materia, [])}
-                salvar_arquivo_drive("provas.json", st.session_state.provas_geradas)
-                st.success("Prova liberada!")
-
-# ==============================================================================
-# PAINEL ALUNO
-# ==============================================================================
-elif st.session_state.perfil_logado == "Aluno":
-    st.header("📝 Central de Provas")
-    aluno_atual = st.session_state.usuario_logado
-    if aluno_atual in st.session_state.entregas_sistema:
-        st.success("✅ Prova já realizada!")
-    elif aluno_atual not in st.session_state.provas_geradas:
-        st.warning("⚠️ Aguarde a liberação do professor.")
-    else:
-        prova = st.session_state.provas_geradas[aluno_atual]
-        st.info(f"Prova de {prova['materia']}")
-        # Lógica de respostas
-        if st.button("Finalizar"):
-            st.session_state.entregas_sistema[aluno_atual] = {"materia": prova['materia'], "nota": 10.0, "data_entrega": datetime.now().strftime("%d/%m/%Y")}
-            salvar_arquivo_drive("entregas.json", st.session_state.entregas_sistema)
+    # Construção da Sidebar customizada baseada em Papéis
+    with st.sidebar:
+        st.markdown(f"<h3 style='color:#D4AF37; text-align:center;'>🏆 SENAI-122</h3>", unsafe_allow_html=True)
+        st.markdown(f"<p style='text-align:center; font-size:12px;'>Usuário: {state['nome_exibicao']}<br><b>Perfil: {state['perfil_logado']}</b></p>", unsafe_allow_html=True)
+        st.write("---")
+        
+        # Roteamento de Menus Dinâmicos conforme Blueprint Técnico
+        if state["perfil_logado"] == "Gestor/Diretor":
+            opcao = st.radio("Navegação Master", [
+                "🏠 Dashboard Geral", "👥 Usuários", "🏫 Turmas", "👨‍🏫 Professores", 
+                "📝 Avaliações", "📊 Analytics", "📁 Relatórios", "🛡 Auditoria", "⚙ Configurações"
+            ])
+        elif state["perfil_logado"] == "Professor":
+            opcao = st.radio("Navegação Docente", [
+                "🏠 Dashboard", "➕ Criar Avaliação", "📚 Banco de Questões", 
+                "📝 Avaliações Ativas", "📤 Entregas", "📊 Relatórios", "⚙ Configurações"
+            ])
+        elif state["perfil_logado"] == "Aluno":
+            opcao = st.radio("Navegação Discente", [
+                "🏠 Início", "📝 Minhas Avaliações", "📥 Downloads", "📤 Upload", "📈 Histórico", "💬 Feedbacks"
+            ])
+        elif state["perfil_logado"] == "Coordenador":
+            opcao = st.radio("Navegação Coordenação", [
+                "🏠 Dashboard", "🏫 Turmas", "📊 Analytics", "📁 Relatórios"
+            ])
+            
+        st.write("---")
+        if st.button("🚪 Encerrar Sessão Corporativa"):
+            state["usuario_logado"] = None
+            state["perfil_logado"] = None
+            state["nome_exibicao"] = None
             st.rerun()
-else:
-    st.markdown("### Bem-vindo. Faça o login no menu lateral.")
+
+    # Renderização da área de trabalho ativa baseada no perfil de segurança
+    if state["perfil_logado"] == "Gestor/Diretor":
+        view_gestor()
+    elif state["perfil_logado"] == "Professor":
+        view_professor()
+    elif state["perfil_logado"] == "Aluno":
+        view_aluno()
+    elif state["perfil_logado"] == "Coordenador":
+        view_coordenador()
