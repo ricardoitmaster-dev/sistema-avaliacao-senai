@@ -48,7 +48,6 @@ def obter_servico_drive():
             credenciais = service_account.Credentials.from_service_account_info(info_chaves, scopes=SCOPES)
             return build('drive', 'v3', credentials=credenciais, cache_discovery=False)
         except Exception:
-            # Silencia o erro visual na inicialização para não quebrar a tela de login
             return None
     return None
 
@@ -69,24 +68,38 @@ def ler_arquivo_drive(nome_arquivo, dados_padrao):
         return dados_padrao
 
 def salvar_arquivo_drive(nome_arquivo, dados):
+    """Grava os dados de forma robusta e limpa no Google Drive (Correção de Persistência)."""
     try:
         drive_service = obter_servico_drive()
         if drive_service is None:
-            return
-        json_dados = json.dumps(dados, indent=4, ensure_ascii=False)
+            return False
+        
+        # Converte o dicionário para string JSON formatada corretamente em UTF-8
+        json_string = json.dumps(dados, indent=4, ensure_ascii=False)
+        json_bytes = json_string.encode('utf-8')
+        
+        # Procura se o arquivo já existe na pasta destino
         query = f"name = '{nome_arquivo}' and '{ID_PASTA_DRIVE}' in parents and trashed = false"
         resultados = drive_service.files().list(q=query, fields="files(id)").execute()
         files = resultados.get('files', [])
-        media = MediaInMemoryUpload(json_dados.encode('utf-8'), mimetype='application/json')
+        
+        media = MediaInMemoryUpload(json_bytes, mimetype='application/json', resumable=True)
+        
         if files:
-            drive_service.files().update(fileId=files[0]['id'], media_body=media).execute()
+            # Se o arquivo já existe, atualiza o conteúdo do ID encontrado
+            file_id = files[0]['id']
+            drive_service.files().update(fileId=file_id, media_body=media).execute()
         else:
-            drive_service.files().create(body={'name': nome_arquivo, 'parents': [ID_PASTA_DRIVE]}, media_body=media).execute()
-    except Exception:
-        pass
+            # Caso contrário, cria um novo arquivo dentro da pasta especificada
+            corpo_arquivo = {'name': nome_arquivo, 'parents': [ID_PASTA_DRIVE]}
+            drive_service.files().create(body=corpo_arquivo, media_body=media).execute()
+        return True
+    except Exception as e:
+        st.sidebar.error(f"⚠️ Erro ao sincronizar nuvem: {e}")
+        return False
 
 # ==============================================================================
-# 3. CONTROLE DE ESTADO DA SESSÃO (Garantia Pós-F5)
+# 3. CONTROLE DE ESTADO DA SESSÃO
 # ==============================================================================
 USUARIOS_PADRAO = {
     "sn1084433": {"nome": "Benedito Ricardo dos Santos", "senha": "Celina2610**", "perfil": "Gestor/Diretor"},
@@ -103,7 +116,7 @@ if 'perfil_logado' not in st.session_state:
 if 'nome_exibicao' not in st.session_state:
     st.session_state.nome_exibicao = None
 
-# Carga sob demanda: Só busca do Drive se o usuário já estiver autenticado
+# Sincronização e Inicialização Segura dos Dados
 if st.session_state.usuario_logado is not None:
     if 'usuarios_cadastrados' not in st.session_state:
         st.session_state.usuarios_cadastrados = ler_arquivo_drive("usuarios.json", USUARIOS_PADRAO)
@@ -112,7 +125,6 @@ if st.session_state.usuario_logado is not None:
     if 'entregas_sistema' not in st.session_state:
         st.session_state.entregas_sistema = ler_arquivo_drive("entregas.json", {})
 else:
-    # Se deslogado, mantém apenas a memória padrão local para o ecossistema de login operar limpo
     st.session_state.usuarios_cadastrados = USUARIOS_PADRAO
     st.session_state.provas_geradas = {}
     st.session_state.entregas_sistema = {}
@@ -165,11 +177,10 @@ if st.session_state.usuario_logado is None:
     
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        u_in = st.text_input("Login Corporativo:").strip().lower()
-        s_in = st.text_input("Senha:", type="password")
+        u_in = st.text_input("Login Corporativo (Ex: snXXXXXXX):").strip().lower()
+        s_in = st.text_input("Senha de Acesso:", type="password")
         
         if st.button("🔓 Autenticar no Sistema"):
-            # Primeiro, tenta puxar do Drive para verificar se há novos cadastros salvos lá antes de validar
             dados_drive = ler_arquivo_drive("usuarios.json", USUARIOS_PADRAO)
             user_data = dados_drive.get(u_in)
             
@@ -177,7 +188,6 @@ if st.session_state.usuario_logado is None:
                 st.session_state.usuario_logado = u_in
                 st.session_state.perfil_logado = user_data["perfil"]
                 st.session_state.nome_exibicao = user_data.get("nome", u_in)
-                # Força a carga completa dos dados pós-autenticação bem-sucedida
                 st.session_state.usuarios_cadastrados = dados_drive
                 st.session_state.provas_geradas = ler_arquivo_drive("provas.json", {})
                 st.session_state.entregas_sistema = ler_arquivo_drive("entregas.json", {})
@@ -268,14 +278,18 @@ else:
                 
                 if st.button("Salvar Usuário"):
                     if novo_id and novo_nome and nova_senha:
+                        # 1. Altera localmente na sessão ativa
                         st.session_state.usuarios_cadastrados[novo_id] = {
                             "nome": novo_nome, 
                             "senha": nova_senha, 
                             "perfil": novo_perfil
                         }
-                        salvar_arquivo_drive("usuarios.json", st.session_state.usuarios_cadastrados)
-                        st.success(f"Usuário '{novo_id}' persistido em nuvem!")
-                        st.rerun()
+                        # 2. Força a gravação síncrona no arquivo JSON do Drive
+                        if salvar_arquivo_drive("usuarios.json", st.session_state.usuarios_cadastrados):
+                            st.success(f"Usuário '{novo_id}' persistido com sucesso no Google Drive!")
+                            st.rerun()
+                        else:
+                            st.error("Erro interno ao tentar gravar dados no arquivo remoto do Google Drive.")
                     else:
                         st.error("Preencha todos os campos obrigatórios.")
             
