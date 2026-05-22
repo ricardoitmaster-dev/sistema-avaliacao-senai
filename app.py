@@ -20,24 +20,45 @@ except ImportError:
     from googleapiclient.http import MediaInMemoryUpload
 
 # ==============================================================================
-# 2. CONFIGURAÇÃO DE ACESSO AO GOOGLE DRIVE EM NUVEM
+# 2. CONFIGURAÇÃO DE ACESSO AO GOOGLE DRIVE EM NUVEM (SOLUÇÃO DEFINITIVA P0)
 # ==============================================================================
 ID_PASTA_DRIVE = "1-bHDGxbJDWTzT30zL9S-oj0ktM-c60_R"
 SCOPES = ['https://www.googleapis.com/auth/drive']
 
+def sanitizar_chave_pem(chave_raw: str) -> str:
+    """
+    Função Blindada: Reconstrói o bloco PEM independentemente de como foi colado no Secrets.
+    Elimina espaços em branco, quebras falsas e garante o padrão RFC 1421 (64 caracteres por linha).
+    """
+    chave = str(chave_raw).strip()
+    chave = chave.replace('\\n', '\n').replace('\r', '')
+    
+    marcador_inicio = "-----BEGIN PRIVATE KEY-----"
+    marcador_fim = "-----END PRIVATE KEY-----"
+    
+    if marcador_inicio in chave and marcador_fim in chave:
+        # Isola o corpo criptográfico descartando os marcadores velhos
+        corpo = chave.split(marcador_inicio)[1].split(marcador_fim)[0]
+        # Remove ABSOLUTAMENTE qualquer espaço, quebra de linha ou tabulação existente
+        corpo_puro = "".join(corpo.split())
+        # Divide o bloco limpo em linhas exatas de 64 caracteres
+        linhas_64 = [corpo_puro[i:i+64] for i in range(0, len(corpo_puro), 64)]
+        # Remonta a estrutura PEM com quebras de linha limpas e válidas
+        return f"{marcador_inicio}\n" + "\n".join(linhas_64) + f"\n{marcador_fim}\n"
+    return chave
+
 def obter_servico_drive():
-    """Busca as chaves de forma direta do Streamlit Secrets sem mutações complexas."""
+    """Conecta com segurança e estabilidade à API do Google Drive."""
     if "gdrive" in st.secrets:
         try:
             info_chaves = dict(st.secrets["gdrive"])
-            # Ajuste direto para garantir compatibilidade exata com o parser PEM do Google
             if "private_key" in info_chaves:
-                info_chaves["private_key"] = info_chaves["private_key"].replace('\\n', '\n')
+                info_chaves["private_key"] = sanitizar_chave_pem(info_chaves["private_key"])
             
             credenciais = service_account.Credentials.from_service_account_info(info_chaves, scopes=SCOPES)
             return build('drive', 'v3', credentials=credenciais, cache_discovery=False)
         except Exception as e:
-            st.sidebar.error(f"Erro ao ler Secrets: {e}")
+            st.error(f"Erro ao inicializar o motor criptográfico do Drive: {e}")
             return None
     return None
 
@@ -85,7 +106,6 @@ USUARIOS_PADRAO = {
     "coord_teste": {"nome": "Coordenador Técnico", "senha": "122", "perfil": "Coordenador"}
 }
 
-# Inicialização segura usando chaves diretas conforme o escopo puro
 if 'usuario_logado' not in st.session_state:
     st.session_state.usuario_logado = None
 if 'perfil_logado' not in st.session_state:
@@ -109,8 +129,6 @@ if 'entregas_sistema' not in st.session_state:
 # ==============================================================================
 # 4. INTERFACE VISUAL (BMW Portinari Blue, Dourado e Dark Mode)
 # ==============================================================================
-st.set_page_config(page_title="SUATS | SENAI-122", page_icon="🏆", layout="wide")
-
 st.markdown("""
     <style>
     .stApp {
@@ -142,7 +160,6 @@ st.markdown("""
 # 5. GERENCIAMENTO DE TELAS E MENUS (Roteamento conforme Blueprint)
 # ==============================================================================
 
-# Portal de Login Lateral / Principal integrado
 if st.session_state.usuario_logado is None:
     st.markdown("<h2 style='text-align:center;'>🔐 SUATS | Portal de Acesso</h2>", unsafe_allow_html=True)
     st.markdown("<p style='text-align:center;'>Insira suas credenciais corporativas SENAI para acessar a plataforma.</p>", unsafe_allow_html=True)
@@ -162,14 +179,12 @@ if st.session_state.usuario_logado is None:
             else:
                 st.error("Login ou senha incorretos.")
 else:
-    # Sidebar unificada construindo a árvore dinâmica de navegação
     with st.sidebar:
         st.markdown(f"<h3 style='text-align:center;'>🏆 SENAI-122</h3>", unsafe_allow_html=True)
         st.write(f"Conectado: **{st.session_state.nome_exibicao}**")
         st.write(f"Perfil: *{st.session_state.perfil_logado}*")
         st.write("---")
         
-        # Estrutura Exata de Menu do Blueprint Técnico da Fase 1
         if st.session_state.perfil_logado == "Gestor/Diretor":
             opcao_menu = st.radio("Menu", [
                 "🏠 Dashboard Geral", "👥 Usuários", "🏫 Turmas", "👨‍🏫 Professores", 
@@ -196,9 +211,6 @@ else:
             st.session_state.nome_exibicao = None
             st.rerun()
 
-    # ==============================================================================
-    # RENDERIZAÇÃO DAS ÁREAS DE TRABALHO ATIVAS
-    # ==============================================================================
     st.title(f"Sistema Unificado de Avaliações Técnicas (SUATS)")
     st.markdown(f"**Navegação Ativa:** {opcao_menu}")
     st.markdown("---")
@@ -206,7 +218,6 @@ else:
     # TELA 2 — DASHBOARD GESTOR
     if st.session_state.perfil_logado == "Gestor/Diretor":
         if "🏠 Dashboard Geral" in opcao_menu:
-            # Cards Executivos Básicos
             c1, c2, c3, c4 = st.columns(4)
             c1.metric("Total de Alunos", "2")
             c2.metric("Total de Professores", "1")
@@ -244,7 +255,6 @@ else:
         elif "➕ Criar Avaliação" in opcao_menu:
             st.subheader("⚙️ Wizard Profissional de Criação")
             
-            # Etapa 1
             st.markdown("##### **Etapa 1: Informações da Disciplina**")
             area = st.text_input("Área:").strip().upper()
             curso = st.text_input("Curso:").strip().upper()
@@ -252,15 +262,12 @@ else:
             turma = st.text_input("Turma:").strip().upper()
             unidade = st.text_input("Unidade:").strip().upper()
             
-            # Etapa 2
             st.markdown("##### **Etapa 2: Tipo de Prova**")
             tipo_prova = st.selectbox("Selecione o modelo:", ["Dissertativa", "Múltiplas Escolhas", "Problema", "Prática", "Híbrida"])
             
-            # Etapa 3
             st.markdown("##### **Etapa 3: Modo de Criação**")
             modo_criacao = st.radio("Escolha o método:", ["Automática (Padrão Exposto)", "Manual (Passar Questões/Respostas)"])
             
-            # Etapa 4
             st.markdown("##### **Etapa 4: Configuração de Parâmetros Técnicos**")
             params_formulas = st.text_area("Insira as funções/fórmulas obrigatórias para esta prova (Ex: PROCV, SE, SOMA):")
             aluno_alvo = st.selectbox("Liberar para o Aluno:", list(st.session_state.usuarios_cadastrados.keys()))
@@ -301,7 +308,6 @@ else:
                 st.write(f"Curso: {prova['curso']} | Turma: {prova['turma']}")
                 
                 st.markdown("#### 📥 1. Downloads")
-                # Criação do buffer fictício para download da prova gerada conforme as diretrizes
                 conteudo_prova_txt = f"PROVA DE {prova['materia']}\nTurma: {prova['turma']}\nTipo: {prova['tipo_prova']}\nParâmetros obrigatórios: {prova['parametros']}\nInsira seu e-mail e respostas abaixo."
                 st.download_button(label="📥 Baixar Arquivo da Prova", data=conteudo_prova_txt, fileName=f"Prova_{prova['materia']}_{aluno_atual}.txt")
                 
@@ -313,7 +319,7 @@ else:
                         st.session_state.entregas_sistema[aluno_atual] = {
                             "materia": prova['materia'],
                             "status": "Enviado",
-                            "nota": 10.0,  # Nota simulada para a infraestrutura da Fase 1
+                            "nota": 10.0,
                             "data_entrega": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
                             "arquivo_nome": arquivo_submetido.name
                         }
