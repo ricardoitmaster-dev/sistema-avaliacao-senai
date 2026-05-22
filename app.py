@@ -7,7 +7,7 @@ import streamlit as st
 import pandas as pd
 
 # ==============================================================================
-# 1. INSTALAÇÃO AUTOMÁTICA DE DEPENDÊNCIAS
+# 1. INSTALAÇÃO AUTOMÁTICA DE DEPENDÊNCIAS (Base ver01)
 # ==============================================================================
 try:
     from google.oauth2 import service_account
@@ -20,41 +20,29 @@ except ImportError:
     from googleapiclient.http import MediaInMemoryUpload
 
 # ==============================================================================
-# 2. CONFIGURAÇÃO DE ACESSO AO GOOGLE DRIVE EM NUVEM (SOLUÇÃO DEFINITIVA P0)
+# 2. CONFIGURAÇÃO DE ACESSO AO GOOGLE DRIVE EM NUVEM (Algoritmo Cripto ver01)
 # ==============================================================================
 ID_PASTA_DRIVE = "1-bHDGxbJDWTzT30zL9S-oj0ktM-c60_R"
 SCOPES = ['https://www.googleapis.com/auth/drive']
 
 def sanitizar_chave_pem(chave_raw: str) -> str:
-    """
-    Função Blindada: Reconstrói o bloco PEM independentemente de como foi colado no Secrets.
-    Elimina espaços em branco, quebras falsas e garante o padrão RFC 1421 (64 caracteres por linha).
-    """
     chave = str(chave_raw).strip()
     chave = chave.replace('\\n', '\n').replace('\r', '')
-    
     marcador_inicio = "-----BEGIN PRIVATE KEY-----"
     marcador_fim = "-----END PRIVATE KEY-----"
-    
     if marcador_inicio in chave and marcador_fim in chave:
-        # Isola o corpo criptográfico descartando os marcadores velhos
         corpo = chave.split(marcador_inicio)[1].split(marcador_fim)[0]
-        # Remove ABSOLUTAMENTE qualquer espaço, quebra de linha ou tabulação existente
         corpo_puro = "".join(corpo.split())
-        # Divide o bloco limpo em linhas exatas de 64 caracteres
         linhas_64 = [corpo_puro[i:i+64] for i in range(0, len(corpo_puro), 64)]
-        # Remonta a estrutura PEM com quebras de linha limpas e válidas
         return f"{marcador_inicio}\n" + "\n".join(linhas_64) + f"\n{marcador_fim}\n"
     return chave
 
 def obter_servico_drive():
-    """Conecta com segurança e estabilidade à API do Google Drive."""
     if "gdrive" in st.secrets:
         try:
             info_chaves = dict(st.secrets["gdrive"])
             if "private_key" in info_chaves:
                 info_chaves["private_key"] = sanitizar_chave_pem(info_chaves["private_key"])
-            
             credenciais = service_account.Credentials.from_service_account_info(info_chaves, scopes=SCOPES)
             return build('drive', 'v3', credentials=credenciais, cache_discovery=False)
         except Exception as e:
@@ -129,6 +117,8 @@ if 'entregas_sistema' not in st.session_state:
 # ==============================================================================
 # 4. INTERFACE VISUAL (BMW Portinari Blue, Dourado e Dark Mode)
 # ==============================================================================
+st.set_page_config(page_title="SUATS | SENAI-122", page_icon="🏆", layout="wide")
+
 st.markdown("""
     <style>
     .stApp {
@@ -153,11 +143,19 @@ st.markdown("""
         color: #F4F4F6 !important;
         border: 1px solid #D4AF37 !important;
     }
+    /* Estilização para os cards de métricas do SUATS */
+    div[data-testid="stMetricValue"] {
+        color: #D4AF37 !important;
+        font-weight: bold;
+    }
+    div[data-testid="stMetricLabel"] {
+        color: #F4F4F6 !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# 5. GERENCIAMENTO DE TELAS E MENUS (Roteamento conforme Blueprint)
+# 5. GERENCIAMENTO DE TELAS E MENUS
 # ==============================================================================
 
 if st.session_state.usuario_logado is None:
@@ -215,39 +213,134 @@ else:
     st.markdown(f"**Navegação Ativa:** {opcao_menu}")
     st.markdown("---")
 
-    # TELA 2 — DASHBOARD GESTOR
+    # ==============================================================================
+    # RENDERIZAÇÃO DAS ÁREAS DE TRABALHO - GESTOR (EVOLUÇÃO SPRINT 2)
+    # ==============================================================================
     if st.session_state.perfil_logado == "Gestor/Diretor":
+        
         if "🏠 Dashboard Geral" in opcao_menu:
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Total de Alunos", "2")
-            c2.metric("Total de Professores", "1")
-            c3.metric("Avaliações Ativas", len(st.session_state.provas_geradas))
-            c4.metric("Avaliações Concluídas", len(st.session_state.entregas_sistema))
+            # PROCESSAMENTO DE MÉTRICAS REAIS DA BASE DE DADOS
+            df_users = pd.DataFrame([{"id": k, **v} for k, v in st.session_state.usuarios_cadastrados.items()])
+            total_alunos = len(df_users[df_users['perfil'] == 'Aluno']) if not df_users.empty else 0
+            total_profs = len(df_users[df_users['perfil'] == 'Professor']) if not df_users.empty else 0
             
-            st.subheader("👁️ Monitoramento ao Vivo")
-            dados_monitoramento = [
-                {"Usuário": "Ricardo", "Perfil": "Aluno", "Status": "Em Prova"},
-                {"Usuário": "João", "Perfil": "Professor", "Status": "Online"}
-            ]
-            st.dataframe(pd.DataFrame(dados_monitoramento), use_container_width=True)
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Alunos Cadastrados", f"{total_alunos}")
+            c2.metric("Corpo Docente", f"{total_profs}")
+            c3.metric("Provas em Aberto", f"{len(st.session_state.provas_geradas)}")
+            c4.metric("Entregas Realizadas", f"{len(st.session_state.entregas_sistema)}")
+            
+            st.write("---")
+            st.subheader("👁️ Monitoramento de Exames Real-Time")
+            
+            if len(st.session_state.entregas_sistema) > 0:
+                dados_entregas = []
+                for aluno, info in st.session_state.entregas_sistema.items():
+                    nome_completo = st.session_state.usuarios_cadastrados.get(aluno, {}).get("nome", aluno)
+                    dados_entregas.append({
+                        "Matrícula Aluno": aluno,
+                        "Nome Completo": nome_completo,
+                        "Exame/Disciplina": info.get("materia", "Não informada"),
+                        "Data/Hora de Envio": info.get("data_entrega", "-"),
+                        "Status do Envio": info.get("status", "Enviado")
+                    })
+                st.dataframe(pd.DataFrame(dados_entregas), use_container_width=True, hide_index=True)
+            else:
+                st.info("Nenhuma atividade de entrega registrada no banco de dados em nuvem até o momento.")
             
         elif "👥 Usuários" in opcao_menu:
             st.subheader("👤 Gerenciamento de Usuários")
-            novo_id = st.text_input("Novo Login:")
-            novo_nome = st.text_input("Nome:")
-            nova_senha = st.text_input("Senha:", type="password")
-            novo_perfil = st.selectbox("Perfil:", ["Aluno", "Professor", "Coordenador", "Gestor/Diretor"])
             
-            if st.button("Salvar Usuário"):
-                if novo_id and novo_nome and nova_senha:
-                    st.session_state.usuarios_cadastrados[novo_id] = {"nome": novo_nome, "senha": nova_senha, "perfil": novo_perfil}
-                    salvar_arquivo_drive("usuarios.json", st.session_state.usuarios_cadastrados)
-                    st.success("Usuário cadastrado com sucesso e salvo no Drive!")
-                    st.rerun()
+            col_form, col_lista = st.columns([1, 2])
             
-            st.dataframe(pd.DataFrame([{"ID": k, **v} for k, v in st.session_state.usuarios_cadastrados.items()]), use_container_width=True)
+            with col_form:
+                st.markdown("### Vincular Usuário")
+                novo_id = st.text_input("Login Corporativo:").strip().lower()
+                novo_nome = st.text_input("Nome Completo:")
+                nova_senha = st.text_input("Senha Corporativa:", type="password")
+                novo_perfil = st.selectbox("Perfil de Acesso:", ["Aluno", "Professor", "Coordenador", "Gestor/Diretor"])
+                
+                if st.button("Salvar Usuário"):
+                    if novo_id and novo_nome and nova_senha:
+                        st.session_state.usuarios_cadastrados[novo_id] = {
+                            "nome": novo_nome, 
+                            "senha": nova_senha, 
+                            "perfil": novo_perfil
+                        }
+                        salvar_arquivo_drive("usuarios.json", st.session_state.usuarios_cadastrados)
+                        st.success(f"Usuário '{novo_id}' persistido em nuvem!")
+                        st.rerun()
+                    else:
+                        st.error("Preencha todos os campos obrigatórios.")
+            
+            with col_lista:
+                st.markdown("### Base Registrada")
+                df_exibicao = pd.DataFrame([
+                    {"ID": k, "Nome": v["nome"], "Perfil": v["perfil"]} 
+                    for k, v in st.session_state.usuarios_cadastrados.items()
+                ])
+                st.dataframe(df_exibicao, use_container_width=True, hide_index=True)
 
-    # TELA 3 — DASHBOARD PROFESSOR
+        elif "🏫 Turmas" in opcao_menu:
+            st.subheader("🏫 Painel Coletivo de Turmas")
+            st.write("Visualização consolidada de turmas e ocupação operacional.")
+            
+            # Filtro inteligente baseado nas turmas das provas geradas
+            if len(st.session_state.provas_geradas) > 0:
+                df_provas = pd.DataFrame(st.session_state.provas_geradas.values())
+                if 'turma' in df_provas.columns:
+                    turmas_detectadas = df_provas['turma'].unique()
+                    st.write(f"Turmas Ativas no Ciclo Corrente: **{', '.join(turmas_detectadas)}**")
+                    st.dataframe(df_provas[['turma', 'materia', 'curso']].drop_duplicates(), use_container_width=True, hide_index=True)
+                else:
+                    st.info("Nenhuma turma com vínculo ativo de avaliação.")
+            else:
+                st.info("Aguardando criação de avaliações pelos professores para mapeamento de turmas.")
+
+        elif "👨‍🏫 Professores" in opcao_menu:
+            st.subheader("👨‍🏫 Alocação e Atividades Docentes")
+            df_users = pd.DataFrame([{"id": k, **v} for k, v in st.session_state.usuarios_cadastrados.items()])
+            if not df_users.empty:
+                df_profs = df_users[df_users['perfil'] == 'Professor']
+                st.dataframe(df_profs[['id', 'nome']], use_container_width=True, hide_index=True)
+            else:
+                st.write("Nenhum docente localizado.")
+
+        elif "📝 Avaliações" in opcao_menu:
+            st.subheader("📝 Repositório Geral de Exames")
+            if len(st.session_state.provas_geradas) > 0:
+                df_provas_gerais = pd.DataFrame([{"Vínculo": k, **v} for k, v in st.session_state.provas_geradas.items()])
+                st.dataframe(df_provas_gerais, use_container_width=True, hide_index=True)
+            else:
+                st.info("Nenhum exame cadastrado no sistema.")
+
+        elif "📊 Analytics" in opcao_menu:
+            st.subheader("📊 Relatórios e Indicadores Críticos")
+            st.write("Análise volumétrica de aproveitamento.")
+            st.markdown(f"- **Volume de Cadastros Totais:** {len(st.session_state.usuarios_cadastrados)}")
+            st.markdown(f"- **Provas Disponibilizadas:** {len(st.session_state.provas_geradas)}")
+            st.markdown(f"- **Taxa de Conclusão Global:** {len(st.session_state.entregas_sistema)} entregas.")
+
+        elif "📁 Relatórios" in opcao_menu:
+            st.subheader("📁 Exportação de Dados")
+            st.write("Gere planilhas consolidadas do sistema.")
+            df_export = pd.DataFrame([{"ID": k, "Nome": v["nome"], "Perfil": v["perfil"]} for k, v in st.session_state.usuarios_cadastrados.items()])
+            csv = df_export.to_csv(index=False).encode('utf-8')
+            st.download_button("📥 Exportar Lista de Usuários (CSV)", csv, "usuarios_suats.csv", "text/csv")
+
+        elif "🛡 Auditoria" in opcao_menu:
+            st.subheader("🛡 Logs de Segurança e Auditoria")
+            st.caption("Ações registradas na sessão ativa:")
+            st.code(f"[{datetime.now().strftime('%Y-%m-%d %H:%M')}] Usuário {st.session_state.usuario_logado} carregou o painel administrativo.")
+
+        elif "⚙ Configurações" in opcao_menu:
+            st.subheader("⚙ Configurações Gerais")
+            st.write("ID do Diretório Google Drive Conectado:")
+            st.code(ID_PASTA_DRIVE)
+
+    # ==============================================================================
+    # RENDERIZAÇÃO DAS ÁREAS DE TRABALHO - PROFESSOR (Wizard ver01 mantido)
+    # ==============================================================================
     elif st.session_state.perfil_logado == "Professor":
         if "🏠 Dashboard" in opcao_menu:
             st.write("Bem-vindo à Central do Docente. Escolha uma ação no menu à esquerda.")
@@ -289,7 +382,9 @@ else:
                     salvar_arquivo_drive("provas.json", st.session_state.provas_geradas)
                     st.success(f"Prova liberada e vinculada com sucesso para {aluno_alvo}!")
 
-    # TELA 4 — DASHBOARD ALUNO
+    # ==============================================================================
+    # RENDERIZAÇÃO DAS ÁREAS DE TRABALHO - ALUNO (ver01 mantido)
+    # ==============================================================================
     elif st.session_state.perfil_logado == "Aluno":
         aluno_atual = st.session_state.usuario_logado
         
@@ -327,7 +422,9 @@ else:
                         st.success("Prova gravada e salva em nuvem!")
                         st.rerun()
 
-    # TELA 5 — COORDENADOR
+    # ==============================================================================
+    # RENDERIZAÇÃO DAS ÁREAS DE TRABALHO - COORDENADOR (ver01 mantido)
+    # ==============================================================================
     elif st.session_state.perfil_logado == "Coordenador":
         st.write("Painel de acompanhamento pedagógico analítico (Modo Leitura).")
         st.dataframe(pd.DataFrame([{"Aluno/ID": k, **v} for k, v in st.session_state.provas_geradas.items()]), use_container_width=True)
