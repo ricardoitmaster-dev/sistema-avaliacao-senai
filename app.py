@@ -278,23 +278,30 @@ else:
             
             with col_form:
                 st.markdown("### Vincular Novo Usuário")
-                novo_id = st.text_input("Login Corporativo:").strip().lower()
-                novo_nome = st.text_input("Nome Completo:")
-                nova_senha = st.text_input("Senha Corporativa:", type="password").strip()
-                novo_perfil = st.selectbox("Perfil de Acesso:", ["Aluno", "Professor", "Coordenador", "Gestor/Diretor"])
-                
-                if st.button("Salvar Usuário"):
-                    if novo_id and novo_nome and nova_senha:
-                        st.session_state.usuarios_cadastrados[novo_id] = {
-                            "nome": novo_nome, 
-                            "senha": nova_senha, 
-                            "perfil": novo_perfil
-                        }
-                        salvar_dados_supabase("usuarios", st.session_state.usuarios_cadastrados)
-                        st.success(f"Usuário '{novo_id}' persistido localmente e enviado para nuvem!")
-                        st.rerun()
-                    else:
-                        st.error("Preencha todos os campos obrigatórios.")
+                # Utilizando st.form para limpar campos automaticamente após envio
+                with st.form("form_novo_usuario", clear_on_submit=True):
+                    novo_id = st.text_input("Login Corporativo:").strip().lower()
+                    novo_nome = st.text_input("Nome Completo:")
+                    nova_senha = st.text_input("Senha Corporativa:", type="password").strip()
+                    novo_perfil = st.selectbox("Perfil de Acesso:", ["Aluno", "Professor", "Coordenador", "Gestor/Diretor"])
+                    
+                    submit_button = st.form_submit_button("Salvar Usuário")
+                    
+                    if submit_button:
+                        if novo_id and novo_nome and nova_senha:
+                            # Prepara dicionário temporário apenas com este usuário
+                            novo_usuario_dict = {novo_id: {"nome": novo_nome, "senha": nova_senha, "perfil": novo_perfil}}
+                            
+                            # Tenta salvar no Supabase
+                            if salvar_dados_supabase("usuarios", novo_usuario_dict):
+                                # Atualiza estado local apenas se salvou com sucesso
+                                st.session_state.usuarios_cadastrados[novo_id] = novo_usuario_dict[novo_id]
+                                st.success(f"Usuário '{novo_id}' cadastrado com sucesso!")
+                                st.rerun() # Atualiza a tabela
+                            else:
+                                st.error("Erro ao salvar no banco de dados. Verifique a conexão.")
+                        else:
+                            st.error("Preencha todos os campos.")
             
             with col_lista:
                 st.markdown("### Base Registrada")
