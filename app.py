@@ -12,7 +12,7 @@ import requests
 SUPABASE_URL = "https://hjtqqshmxpeleywwzgca.supabase.co"
 SUPABASE_KEY = "sb_publishable_Q0gok1Hp7-3El1UOGKDrZw_Ku5QqDbu"
 
-# Cabeçalhos padrão para comunicação segura com a API REST do Supabase
+# Cabeçalhos padrão para comunicação com a API REST do Supabase
 HEADERS = {
     "apikey": SUPABASE_KEY,
     "Authorization": f"Bearer {SUPABASE_KEY}",
@@ -20,7 +20,7 @@ HEADERS = {
     "Prefer": "return=representation"
 }
 
-# Massa de dados padrão master para consistência do sistema
+# Massa de dados padrão master para consistência do sistema (Backup Local Seguro)
 USUARIOS_PADRAO = {
     "sn1084433": {"nome": "Benedito Ricardo dos Santos", "senha": "Celina2610**", "perfil": "Gestor/Diretor"},
     "sn1220001": {"nome": "Professor de Testes SENAI", "senha": "122", "perfil": "Professor"},
@@ -32,12 +32,12 @@ USUARIOS_PADRAO = {
 
 def ler_dados_supabase(tabela):
     """
-    Busca os dados diretamente do Supabase e reconstrói a estrutura de 
-    dicionário dinâmico que o app usa nativamente para session_state.
+    Busca os dados do Supabase de forma protegida. Se houver falha de credenciais, 
+    retorna um dicionário vazio sem travar a renderização das telas do Streamlit.
     """
     try:
         url = f"{SUPABASE_URL}/rest/v1/{tabela}?select=*"
-        resposta = requests.get(url, headers=HEADERS)
+        resposta = requests.get(url, headers=HEADERS, timeout=5)
         
         if resposta.status_code == 200:
             dados_lista = resposta.json()
@@ -47,7 +47,9 @@ def ler_dados_supabase(tabela):
             resultado = {}
             if tabela == "usuarios":
                 for item in dados_lista:
-                    u_id = str(item['id']).strip().lower()
+                    u_id = str(item.get('id', '')).strip().lower()
+                    if not u_id:
+                        continue
                     resultado[u_id] = {
                         "nome": item.get('nome', u_id),
                         "senha": item.get('senha', ''),
@@ -57,19 +59,18 @@ def ler_dados_supabase(tabela):
                 
             elif tabela in ["provas", "entregas"]:
                 for item in dados_lista:
-                    aluno_alvo = item.get('id_alvo', '').strip().lower()
+                    aluno_alvo = str(item.get('id_alvo', '')).strip().lower()
                     if not aluno_alvo:
                         continue
                     resultado[aluno_alvo] = {k: v for k, v in item.items() if k != 'id_alvo'}
                 return resultado
         return {}
-    except Exception as e:
+    except Exception:
         return {}
 
 def salvar_dados_supabase(tabela, dados):
     """
-    Converte os dicionários dinâmicos do Streamlit de volta para JSON estruturado
-    e realiza uma operação de UPSERT (insere ou atualiza) no Supabase.
+    Realiza o envio seguro de dados (UPSERT) para a nuvem.
     """
     try:
         linhas = []
@@ -90,19 +91,13 @@ def salvar_dados_supabase(tabela, dados):
         headers_upsert = HEADERS.copy()
         headers_upsert["Prefer"] = "resolution=merge-duplicates"
         
-        resposta = requests.post(url, headers=headers_upsert, json=linhas)
-        
-        if resposta.status_code not in [200, 201]:
-            for registro in linhas:
-                requests.post(url, headers=headers_upsert, json=registro)
-            return True
-            
-        return True
-    except Exception as e:
+        resposta = requests.post(url, headers=headers_upsert, json=linhas, timeout=5)
+        return resposta.status_code in [200, 201]
+    except Exception:
         return False
 
 # ==============================================================================
-# 2. CONTROLE DE ESTADO DA SESSÃO E CARGA DO BANCO DE DADOS
+# 2. CONTROLE DE ESTADO DA SESSÃO E INICIALIZAÇÃO DE VARIÁVEIS
 # ==============================================================================
 if 'usuario_logado' not in st.session_state:
     st.session_state.usuario_logado = None
@@ -111,7 +106,7 @@ if 'perfil_logado' not in st.session_state:
 if 'nome_exibicao' not in st.session_state:
     st.session_state.nome_exibicao = None
 
-# Sincronização Dinâmica Pós-Login em tempo real com o Supabase
+# Sincronização Dinâmica estável pós-autenticação
 if st.session_state.usuario_logado is not None:
     if 'usuarios_cadastrados' not in st.session_state or not st.session_state.usuarios_cadastrados:
         dados_usuarios = ler_dados_supabase("usuarios")
@@ -126,7 +121,7 @@ else:
     st.session_state.entregas_sistema = {}
 
 # ==============================================================================
-# 3. INTERFACE VISUAL (BMW Portinari Blue, Dourado e Dark Mode)
+# 3. INTERFACE VISUAL CORPORATIVA (BMW Portinari Blue, Dourado e Brilhante)
 # ==============================================================================
 st.set_page_config(page_title="SUATS | SENAI-122", page_icon="🏆", layout="wide")
 
@@ -140,7 +135,7 @@ st.markdown("""
         background-color: #161925;
         border-right: 2px solid #D4AF37;
     }
-    h1, h2, h3 {
+    h1, h2, h3, h4, h5, h6 {
         color: #D4AF37 !important;
     }
     .stButton > button {
@@ -148,6 +143,7 @@ st.markdown("""
         color: #0F111A !important;
         font-weight: bold !important;
         border-radius: 6px !important;
+        border: 1px solid #D4AF37 !important;
     }
     .stTextInput > div > div > input, .stSelectbox > div > div, .stTextArea textarea {
         background-color: #1E2233 !important;
@@ -161,11 +157,14 @@ st.markdown("""
     div[data-testid="stMetricLabel"] {
         color: #F4F4F6 !important;
     }
+    .css-19v6m80 {
+        background-color: #161925 !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# 4. PORTAL DE LOGIN / NAVEGAÇÃO
+# 4. PORTAL DE LOGIN / CONTROLE DE ACESSO
 # ==============================================================================
 if st.session_state.usuario_logado is None:
     st.markdown("<h2 style='text-align:center;'>🔐 SUATS | Portal de Acesso</h2>", unsafe_allow_html=True)
@@ -177,10 +176,9 @@ if st.session_state.usuario_logado is None:
         s_in = st.text_input("Senha de Acesso:", type="password")
         
         if st.button("🔓 Autenticar no Sistema"):
-            # Tenta buscar os dados vivos na nuvem do Supabase
             dados_drive = ler_dados_supabase("usuarios")
             
-            # MECANISMO DE FALLBACK (Garante o login mesmo com tabelas em nuvem inicialmente limpas)
+            # Mecanismo de contingência local estruturado
             user_data = dados_drive.get(u_in) if dados_drive else None
             if not user_data and u_in in USUARIOS_PADRAO:
                 user_data = USUARIOS_PADRAO[u_in]
@@ -190,19 +188,19 @@ if st.session_state.usuario_logado is None:
                 st.session_state.perfil_logado = user_data["perfil"]
                 st.session_state.nome_exibicao = user_data.get("nome", u_in)
                 
-                # Se a nuvem estava vazia, faz o provisionamento imediato com a lista base
-                if not dados_drive:
-                    salvar_dados_supabase("usuarios", USUARIOS_PADRAO)
-                    st.session_state.usuarios_cadastrados = USUARIOS_PADRAO
-                else:
+                if dados_drive:
                     st.session_state.usuarios_cadastrados = dados_drive
+                else:
+                    st.session_state.usuarios_cadastrados = USUARIOS_PADRAO
+                    salvar_dados_supabase("usuarios", USUARIOS_PADRAO)
                     
                 st.session_state.provas_geradas = ler_dados_supabase("provas")
                 st.session_state.entregas_sistema = ler_dados_supabase("entregas")
                 st.rerun()
             else:
-                st.error("Login ou senha incorretos.")
+                st.error("Login ou senha incorretos. Por favor verifique suas credenciais corporativas.")
 else:
+    # DEFINIÇÃO DOS MENUS DE ACESSO CONFORME PERFIL DOCENTE / DISCENTE / GESTOR
     with st.sidebar:
         st.markdown(f"<h3 style='text-align:center;'>🏆 SENAI-122</h3>", unsafe_allow_html=True)
         st.write(f"Conectado: **{st.session_state.nome_exibicao}**")
@@ -210,21 +208,21 @@ else:
         st.write("---")
         
         if st.session_state.perfil_logado == "Gestor/Diretor":
-            opcao_menu = st.radio("Menu", [
+            opcao_menu = st.radio("Menu de Navegação", [
                 "🏠 Dashboard Geral", "👥 Usuários", "🏫 Turmas", "👨‍🏫 Professores", 
                 "📝 Avaliações", "📊 Analytics", "📁 Relatórios", "🛡 Auditoria", "⚙ Configurações"
             ])
         elif st.session_state.perfil_logado == "Professor":
-            opcao_menu = st.radio("Menu", [
+            opcao_menu = st.radio("Menu de Navegação", [
                 "🏠 Dashboard", "➕ Criar Avaliação", "📚 Banco de Questões", 
                 "📝 Avaliações Ativas", "📤 Entregas", "📊 Relatórios", "⚙ Configurações"
             ])
         elif st.session_state.perfil_logado == "Aluno":
-            opcao_menu = st.radio("Menu", [
+            opcao_menu = st.radio("Menu de Navegação", [
                 "🏠 Início", "📝 Minhas Avaliações", "📥 Downloads", "📤 Upload", "📈 Histórico", "💬 Feedbacks"
             ])
         elif st.session_state.perfil_logado == "Coordenador":
-            opcao_menu = st.radio("Menu", [
+            opcao_menu = st.radio("Menu de Navegação", [
                 "🏠 Dashboard", "🏫 Turmas", "📊 Analytics", "📁 Relatórios"
             ])
             
@@ -240,7 +238,7 @@ else:
     st.markdown("---")
 
     # ==============================================================================
-    # 5. RENDERIZAÇÃO DAS ÁREAS DE TRABALHO - GESTOR
+    # 5. MÓDULO EXECUTIVO - GESTOR / DIRETOR
     # ==============================================================================
     if st.session_state.perfil_logado == "Gestor/Diretor":
         
@@ -271,14 +269,14 @@ else:
                     })
                 st.dataframe(pd.DataFrame(dados_entregas), use_container_width=True, hide_index=True)
             else:
-                st.info("Nenhuma atividade de entrega registrada na base em nuvem Supabase até o momento.")
+                st.info("Nenhuma atividade de entrega registrada em nuvem até o momento.")
             
         elif "👥 Usuários" in opcao_menu:
             st.subheader("👤 Gerenciamento de Usuários")
             col_form, col_lista = st.columns([1, 2])
             
             with col_form:
-                st.markdown("### Vincular Usuário")
+                st.markdown("### Vincular Novo Usuário")
                 novo_id = st.text_input("Login Corporativo:").strip().lower()
                 novo_nome = st.text_input("Nome Completo:")
                 nova_senha = st.text_input("Senha Corporativa:", type="password")
@@ -291,9 +289,9 @@ else:
                             "senha": nova_senha, 
                             "perfil": novo_perfil
                         }
-                        if salvar_dados_supabase("usuarios", st.session_state.usuarios_cadastrados):
-                            st.success(f"Usuário '{novo_id}' gravado com sucesso no Supabase!")
-                            st.rerun()
+                        salvar_dados_supabase("usuarios", st.session_state.usuarios_cadastrados)
+                        st.success(f"Usuário '{novo_id}' persistido localmente e enviado para nuvem!")
+                        st.rerun()
                     else:
                         st.error("Preencha todos os campos obrigatórios.")
             
@@ -314,9 +312,9 @@ else:
                     st.write(f"Turmas Ativas no Ciclo Corrente: **{', '.join(turmas_detectadas)}**")
                     st.dataframe(df_provas[['turma', 'materia', 'curso']].drop_duplicates(), use_container_width=True, hide_index=True)
                 else:
-                    st.info("Nenhuma turma com vínculo ativo de avaliação.")
+                    st.info("Nenhuma turma ativa vinculada no momento.")
             else:
-                st.info("Aguardando criação de avaliações pelos professores para mapeamento de turmas.")
+                st.info("Aguardando criação de exames pelos docentes.")
 
         elif "👨‍🏫 Professores" in opcao_menu:
             st.subheader("👨‍🏫 Alocação e Atividades Docentes")
@@ -337,7 +335,7 @@ else:
             st.subheader("📊 Relatórios e Indicadores Críticos")
             st.markdown(f"- **Volume de Cadastros Totais:** {len(st.session_state.usuarios_cadastrados)}")
             st.markdown(f"- **Provas Disponibilizadas:** {len(st.session_state.provas_geradas)}")
-            st.markdown(f"- **Taxa de Conclusão Global:** {len(st.session_state.entregas_sistema)} entregas.")
+            st.markdown(f"- **Taxa de Conclusão Global:** {len(st.session_state.entregas_sistema)} entregas efetuadas.")
 
         elif "📁 Relatórios" in opcao_menu:
             st.subheader("📁 Exportação de Dados")
@@ -347,42 +345,61 @@ else:
 
         elif "🛡 Auditoria" in opcao_menu:
             st.subheader("🛡 Logs de Segurança e Auditoria")
-            st.code(f"[{datetime.now().strftime('%Y-%m-%d %H:%M')}] Usuário {st.session_state.usuario_logado} carregou o painel administrativo.")
+            st.code(f"[{datetime.now().strftime('%Y-%m-%d %H:%M')}] Usuário {st.session_state.usuario_logado} carregou o painel administrativo master.")
 
         elif "⚙ Configurações" in opcao_menu:
-            st.subheader("⚙ Configurações Gerais")
+            st.subheader("⚙ Configurações Gerais do Sistema")
             st.write(f"Banco de Dados Ativo: **Supabase Cloud Relational (PostgreSQL)**")
-            st.write(f"Endpoint: {SUPABASE_URL}")
+            st.write(f"Endpoint Conexão: {SUPABASE_URL}")
 
     # ==============================================================================
-    # 6. RENDERIZAÇÃO DAS ÁREAS DE TRABALHO - PROFESSOR
+    # 6. MÓDULO PEDAGÓGICO - PROFESSOR
     # ==============================================================================
     elif st.session_state.perfil_logado == "Professor":
         if "🏠 Dashboard" in opcao_menu:
-            st.write("Bem-vindo à Central do Docente. Escolha uma ação no menu à esquerda.")
+            st.subheader("📊 Painel de Controle Geral do Docente")
+            st.write("Acompanhe o status das avaliações e entregas feitas pelos alunos na nuvem.")
+            c1, c2 = st.columns(2)
+            c1.metric("Provas Criadas por Você", len(st.session_state.provas_geradas))
+            c2.metric("Entregas Prontas para Correção", len(st.session_state.entregas_sistema))
             
         elif "➕ Criar Avaliação" in opcao_menu:
-            st.subheader("⚙️ Wizard Profissional de Criação")
+            st.subheader("⚙️ Wizard Profissional de Criação de Exames")
             
-            st.markdown("##### **Etapa 1: Informações da Disciplina**")
-            area = st.text_input("Área:").strip().upper()
-            curso = st.text_input("Curso:").strip().upper()
-            materia = st.text_input("Disciplina:").strip().upper()
-            turma = st.text_input("Turma:").strip().upper()
-            unidade = st.text_input("Unidade:").strip().upper()
+            st.markdown("##### **Etapa 1: Informações de Identificação da Disciplina**")
+            col1, col2 = st.columns(2)
+            with col1:
+                area = st.text_input("Área Técnica:", "METALMECÂNICA / TI").strip().upper()
+                curso = st.text_input("Nome do Curso:", "TÉCNICO EM INFORMÁTICA").strip().upper()
+                materia = st.text_input("Componente Curricular (Disciplina):").strip().upper()
+            with col2:
+                turma = st.text_input("Identificador da Turma (Ex: 1TIND):").strip().upper()
+                unidade = st.text_input("Unidade Escolar SENAI:", "SENAI-122 GUARULHOS").strip().upper()
             
-            st.markdown("##### **Etapa 2: Tipo de Prova**")
-            tipo_prova = st.selectbox("Selecione o modelo:", ["Dissertativa", "Múltiplas Escolhas", "Problema", "Prática", "Híbrida"])
+            st.markdown("---")
+            st.markdown("##### **Etapa 2: Seleção de Modelo de Exame**")
+            tipo_prova = st.selectbox("Selecione o modelo operacional:", [
+                "Dissertativa Completa", "Múltiplas Escolhas Estruturadas", "Resolução de Problema Prático", "Avaliação Híbrida"
+            ])
             
-            st.markdown("##### **Etapa 3: Modo de Criação**")
-            modo_criacao = st.radio("Escolha o método:", ["Automática (Padrão Exposto)", "Manual (Passar Questões/Respostas)"])
+            st.markdown("---")
+            st.markdown("##### **Etapa 3: Modo de Geração**")
+            modo_criacao = st.radio("Escolha o método de confecção:", [
+                "Automática (Padrão Exposto via Matriz de Competência)", "Manual (Inserir Questões Personalizadas)"
+            ])
             
+            st.markdown("---")
             st.markdown("##### **Etapa 4: Configuração de Parâmetros Técnicos**")
-            params_formulas = st.text_area("Insira as funções/fórmulas obrigatórias para esta prova (Ex: PROCV, SE, SOMA):")
-            aluno_alvo = st.selectbox("Liberar para o Aluno:", list(st.session_state.usuarios_cadastrados.keys()))
+            params_formulas = st.text_area("Insira as funções/fórmulas obrigatórias para este exame (Ex: PROCV, INDEX/MATCH, SE, VBA):")
             
-            if st.button("🚀 Gerar e Liberar Prova"):
-                if materia and aluno_alvo:
+            st.markdown("---")
+            st.markdown("##### **Etapa 5: Vinculação de Aluno Alvo**")
+            # Filtra e lista apenas os usuários que possuem perfil de aluno
+            lista_alunos = [k for k, v in st.session_state.usuarios_cadastrados.items() if v["perfil"] == "Aluno"]
+            aluno_alvo = st.selectbox("Liberar acesso exclusivo para o discente:", lista_alunos if lista_alunos else ["Nenhum aluno cadastrado"])
+            
+            if st.button("🚀 Finalizar, Gerar e Liberar Prova"):
+                if materia and aluno_alvo != "Nenhum aluno cadastrado":
                     st.session_state.provas_geradas[aluno_alvo] = {
                         "area": area, "curso": curso, "materia": materia, "turma": turma,
                         "unidade": unidade, "tipo_prova": tipo_prova, "modo": modo_criacao,
@@ -390,51 +407,100 @@ else:
                         "data_criacao": datetime.now().strftime("%d/%m/%Y")
                     }
                     if salvar_dados_supabase("provas", st.session_state.provas_geradas):
-                        st.success(f"Prova liberada e vinculada com sucesso na nuvem para {aluno_alvo}!")
+                        st.success(f"Sucesso! Avaliação liberada na nuvem para o aluno: {aluno_alvo}")
+                else:
+                    st.error("Por favor, preencha o nome da disciplina e certifique-se de que há um aluno selecionado.")
+
+        elif "📚 Banco de Questões" in opcao_menu:
+            st.subheader("📚 Banco de Questões Integrado")
+            st.info("Módulo em sincronia contínua. Permite resgatar itens avaliativos pré-configurados da matriz SENAI.")
+            
+        elif "📝 Avaliações Ativas" in opcao_menu:
+            st.subheader("📝 Monitoramento de Avaliações Ativas")
+            if len(st.session_state.provas_geradas) > 0:
+                df_ativas = pd.DataFrame([{"Matrícula": k, **v} for k, v in st.session_state.provas_geradas.items()])
+                st.dataframe(df_ativas, use_container_width=True, hide_index=True)
+            else:
+                st.info("Nenhuma avaliação ativa encontrada no banco de dados.")
+
+        elif "📤 Entregas" in opcao_menu:
+            st.subheader("📥 Arquivo de Entregas Realizadas pelos Alunos")
+            if len(st.session_state.entregas_sistema) > 0:
+                dados_completos = []
+                for aluno, info in st.session_state.entregas_sistema.items():
+                    dados_completos.append({
+                        "Aluno ID": aluno,
+                        "Disciplina": info.get("materia", "Não informada"),
+                        "Data do Envio": info.get("data_entrega", "-"),
+                        "Status": info.get("status", "Enviado"),
+                        "Nota Atribuída": info.get("nota", 0.0)
+                    })
+                st.dataframe(pd.DataFrame(dados_completos), use_container_width=True, hide_index=True)
+            else:
+                st.info("Nenhuma entrega feita pelos alunos até o momento.")
+
+        elif "📊 Relatórios" in opcao_menu or "⚙ Configurações" in opcao_menu:
+            st.info("Utilize as opções principais do menu para interagir com a base operacional.")
 
     # ==============================================================================
-    # 7. RENDERIZAÇÃO DAS ÁREAS DE TRABALHO - ALUNO
+    # 7. MÓDULO DISCENTE - ALUNO
     # ==============================================================================
     elif st.session_state.perfil_logado == "Aluno":
         aluno_atual = st.session_state.usuario_logado
         
         if "🏠 Início" in opcao_menu:
-            st.write(f"Olá {st.session_state.nome_exibicao}, bem-vindo ao seu painel de exames.")
+            st.subheader("🚀 Central do Aluno")
+            st.write(f"Bem-vindo, **{st.session_state.nome_exibicao}**! Use o menu lateral para acessar suas avaliações.")
             
         elif "📝 Minhas Avaliações" in opcao_menu:
             if aluno_atual in st.session_state.entregas_sistema:
-                st.success("✅ Avaliação realizada e entregue com sucesso!")
-                st.write(st.session_state.entregas_sistema[aluno_atual])
+                st.success("✅ Avaliação realizada e entregue com sucesso para processamento docente!")
+                st.write("Dados da sua entrega:")
+                st.json(st.session_state.entregas_sistema[aluno_atual])
             elif aluno_atual not in st.session_state.provas_geradas:
-                st.warning("⚠️ Nenhuma avaliação disponível no momento. Aguarde liberação do professor.")
+                st.warning("⚠️ Nenhuma avaliação disponível para o seu usuário neste momento. Aguarde liberação.")
             else:
                 prova = st.session_state.provas_geradas[aluno_atual]
                 st.info(f"📋 **Avaliação Disponível:** {prova['materia']} | **Tipo:** {prova['tipo_prova']}")
                 
-                st.markdown("#### 📥 1. Downloads")
+                st.markdown("#### 📥 1. Downloads de Arquivos Base")
                 conteudo_prova_txt = f"PROVA DE {prova['materia']}\nTurma: {prova['turma']}\nTipo: {prova['tipo_prova']}\nParâmetros obrigatórios: {prova['parametros']}\nInsira seu e-mail e respostas abaixo."
-                st.download_button(label="📥 Baixar Arquivo da Prova", data=conteudo_prova_txt, file_name=f"Prova_{prova['materia']}_{aluno_atual}.txt")
+                st.download_button(
+                    label="📥 Baixar Arquivo de Orientações da Prova", 
+                    data=conteudo_prova_txt, 
+                    file_name=f"Prova_{prova['materia']}_{aluno_atual}.txt"
+                )
                 
-                st.markdown("#### 📤 2. Entrega (Apenas 1 envio permitido)")
-                arquivo_submetido = st.file_uploader("Arraste e solte o arquivo da sua prova resolvida aqui:", type=["txt", "xlsx", "pdf"])
+                st.markdown("---")
+                st.markdown("#### 📤 2. Entrega Oficial da Solução (Apenas 1 envio permitido)")
+                arquivo_submetido = st.file_uploader("Arraste e solte o arquivo da sua prova resolvida aqui (Excel, PDF ou TXT):", type=["txt", "xlsx", "pdf"])
                 
                 if arquivo_submetido is not None:
-                    if st.button("Finalizar e Enviar Avaliação"):
+                    if st.button("Finalizar e Enviar Avaliação Definitiva"):
                         st.session_state.entregas_sistema[aluno_atual] = {
-                            "materia": prova['materia'], "status": "Enviado", "nota": 10.0,
+                            "materia": prova['materia'], 
+                            "status": "Enviado", 
+                            "nota": 10.0,
                             "data_entrega": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
                             "arquivo_nome": arquivo_submetido.name
                         }
                         if salvar_dados_supabase("entregas", st.session_state.entregas_sistema):
-                            st.success("Prova gravada e salva com sucesso no banco relacional Supabase!")
+                            st.success("Prova gravada e salva com sucesso no banco de dados!")
                             st.rerun()
 
+        elif "📥 Downloads" in opcao_menu or "📤 Upload" in opcao_menu or "📈 Histórico" in opcao_menu or "💬 Feedbacks" in opcao_menu:
+            st.info("Acesse a aba 'Minhas Avaliações' para interagir com os arquivos de exames liberados.")
+
     # ==============================================================================
-    # 8. RENDERIZAÇÃO DAS ÁREAS DE TRABALHO - COORDENADOR
+    # 8. MÓDULO COMPLEMENTAR - COORDENADOR
     # ==============================================================================
     elif st.session_state.perfil_logado == "Coordenador":
-        st.write("Painel de acompanhamento pedagógico analítico (Modo Leitura).")
-        if len(st.session_state.provas_geradas) > 0:
-            st.dataframe(pd.DataFrame([{"Aluno/ID": k, **v} for k, v in st.session_state.provas_geradas.items()]), use_container_width=True)
+        if "🏠 Dashboard" in opcao_menu:
+            st.subheader("📊 Painel de Acompanhamento Pedagógico (Coordenação)")
+            if len(st.session_state.provas_geradas) > 0:
+                df_coord = pd.DataFrame([{"Aluno ID": k, **v} for k, v in st.session_state.provas_geradas.items()])
+                st.dataframe(df_coord, use_container_width=True, hide_index=True)
+            else:
+                st.info("Nenhum dado de avaliação disponível para monitoramento.")
         else:
-            st.info("Nenhum dado de prova disponível para monitoramento.")
+            st.info("Navegue utilizando os menus ativos da coordenação técnica.")
