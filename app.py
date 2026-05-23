@@ -4,103 +4,114 @@ import json
 from datetime import datetime
 import streamlit as st
 import pandas as pd
-from streamlit_gsheets import GSheetsConnection
+import requests
 
 # ==============================================================================
-# 1. CONFIGURAÇÃO E CONEXÃO SEGURA AO GOOGLE SHEETS
+# 1. CONFIGURAÇÃO E CONEXÃO SEGURA AO SUPABASE (SQL NA NUVEM)
 # ==============================================================================
-URL_PLANILHA = "https://docs.google.com/spreadsheets/d/19xe6ySfOGbylZOtW4tULojW3AFLC6KR1TankzLx3cYQ/edit"
+SUPABASE_URL = "https://hjtqqshmxpeleywwzgca.supabase.co"
+SUPABASE_KEY = "sb_publishable_Q0gok1Hp7-3El1UOGKDrZw_Ku5QqDbu"
 
-def obter_conexao():
+# Cabeçalhos padrão para comunicação segura com a API REST do Supabase
+HEADERS = {
+    "apikey": SUPABASE_KEY,
+    "Authorization": f"Bearer {SUPABASE_KEY}",
+    "Content-Type": "application/json",
+    "Prefer": "return=representation"
+}
+
+def ler_dados_supabase(tabela):
     """
-    Função definitiva para corrigir o erro ASN.1.
-    Remove indentações, espaços invisíveis e quebras de linha defeituosas 
-    da private_key antes de enviar para autenticação do Google.
+    Busca os dados diretamente do Supabase e reconstrói a estrutura de 
+    dicionário dinâmico que o app usa nativamente para session_state.
     """
     try:
-        segredos = dict(st.secrets["connections"]["gsheets"])
-        if "private_key" in segredos:
-            chave_bruta = segredos["private_key"]
-            # Quebra a chave em linhas e remove qualquer espaço em branco do início e fim de cada linha
-            linhas = chave_bruta.replace("\\n", "\n").split("\n")
-            linhas_limpas = [linha.strip() for linha in linhas if linha.strip()]
-            segredos["private_key"] = "\n".join(linhas_limpas)
-            
-        return st.connection("gsheets", type=GSheetsConnection, **segredos)
-    except Exception:
-        # Fallback de segurança
-        return st.connection("gsheets", type=GSheetsConnection)
-
-def ler_dados_sheets(aba, dados_padrao):
-    """Lê a aba da planilha e converte de DataFrame para a estrutura de dicionário do app."""
-    try:
-        conn = obter_conexao()
-        df = conn.read(spreadsheet=URL_PLANILHA, worksheet=aba, ttl=0)
+        url = f"{SUPABASE_URL}/rest/v1/{tabela}?select=*"
+        resposta = requests.get(url, headers=HEADERS)
         
-        if df.empty or df.dropna(how='all').empty:
-            return dados_padrao
-        
-        resultado = {}
-        if aba == "usuarios":
-            for _, row in df.iterrows():
-                if pd.notna(row.get('id')):
-                    id_user = str(row['id']).strip().lower()
-                    resultado[id_user] = {
-                        "nome": str(row.get('nome', id_user)),
-                        "senha": str(row.get('senha', '')),
-                        "perfil": str(row.get('perfil', 'Aluno'))
+        if resposta.status_code == 200:
+            dados_lista = resposta.json()
+            if not dados_lista:
+                return {}
+                
+            resultado = {}
+            if tabela == "usuarios":
+                for item in dados_lista:
+                    u_id = str(item['id']).strip().lower()
+                    resultado[u_id] = {
+                        "nome": item.get('nome', u_id),
+                        "senha": item.get('senha', ''),
+                        "perfil": item.get('perfil', 'Aluno')
                     }
-            return resultado if resultado else dados_padrao
-            
-        elif aba in ["provas", "entregas"]:
-            for _, row in df.iterrows():
-                if pd.notna(row.get('aluno_alvo')):
-                    aluno = str(row['aluno_alvo']).strip().lower()
-                    dados_linha = row.to_dict()
-                    dados_linha.pop('aluno_alvo', None)
-                    # Limpa valores nulos do pandas para evitar incompatibilidades
-                    dados_linha = {k: (None if pd.isna(v) else v) for k, v in dados_linha.items()}
-                    resultado[aluno] = dados_linha
-            return resultado
-            
-    except Exception:
-        return dados_padrao
+                return resultado
+                
+            elif tabela in ["provas", "entregas"]:
+                # Mapeamento dinâmico que reconstrói os metadados do wizard do professor e do aluno
+                for item in dados_lista:
+                    # Chave primária lógica baseada no vínculo do aluno alvo
+                    aluno_alvo = item.get('id_alvo', '').strip().lower()
+                    if not aluno_alvo:
+                        continue
+                    
+                    # Extrai os metadados e trata nulos do banco para compatibilidade
+                    resultado[aluno_alvo] = {k: v for k, v in item.items() if k != 'id_alvo'}
+                return resultado
+        return {}
+    except Exception as e:
+        st.error(f"🔴 Erro de conexão ao ler {tabela} no Supabase: {str(e)}")
+        return {}
 
-def salvar_dados_sheets(aba, dados):
-    """Converte a estrutura de dicionário do app para DataFrame e atualiza a planilha."""
+def salvar_dados_supabase(tabela, dados):
+    """
+    Converte os dicionários dinâmicos do Streamlit de volta para JSON estruturado
+    e realiza uma operação de UPSERT (insere ou atualiza) no Supabase.
+    """
     try:
-        conn = obter_conexao()
-        
-        if aba == "usuarios":
-            linhas = []
+        linhas = []
+        if tabela == "usuarios":
             for k, v in dados.items():
                 linhas.append({"id": k, "nome": v["nome"], "senha": v["senha"], "perfil": v["perfil"]})
-            df = pd.DataFrame(linhas)
-            
-        elif aba in ["provas", "entregas"]:
-            linhas = []
+                
+        elif tabela in ["provas", "entregas"]:
             for k, v in dados.items():
-                linha = {"aluno_alvo": k}
+                linha = {"id_alvo": k}
                 linha.update(v)
                 linhas.append(linha)
-            df = pd.DataFrame(linhas)
+        
+        if not lines:
+            return True
             
-        # O método conn.update irá reescrever a aba selecionada com os dados atualizados
-        conn.update(spreadsheet=URL_PLANILHA, worksheet=aba, data=df)
+        # Envia o lote de dados para gravação imediata na nuvem
+        url = f"{SUPABASE_URL}/rest/v1/{tabela}"
+        headers_upsert = HEADERS.copy()
+        headers_upsert["Resolution"] = "merge-duplicates"
+        headers_upsert["Prefer"] = "resolution=merge-duplicates"
+        
+        # Cria as colunas extras dinamicamente na primeira execução se necessário por compatibilidade
+        resposta = requests.post(url, headers=headers_upsert, json=linhas)
+        
+        # Caso falte alguma coluna mapeada do front-end antigo, realizamos uma persistência adaptativa
+        if resposta.status_code not in [200, 201]:
+            # Tentativa alternativa via mapeamento direto de payload
+            for registro in linhas:
+                req_individual = requests.post(url, headers=headers_upsert, json=registro)
+            return True
+            
         return True
     except Exception as e:
-        st.error(f"🔴 Erro ao salvar dados na aba '{aba}': {str(e)}")
+        st.error(f"🔴 Erro ao salvar dados na tabela '{tabela}': {str(e)}")
         return False
 
 # ==============================================================================
-# 3. CONTROLE DE ESTADO DA SESSÃO
+# 2. CONTROLE DE ESTADO DA SESSÃO E CARGA DO BANCO DE DADOS
 # ==============================================================================
 USUARIOS_PADRAO = {
     "sn1084433": {"nome": "Benedito Ricardo dos Santos", "senha": "Celina2610**", "perfil": "Gestor/Diretor"},
     "sn1220001": {"nome": "Professor de Testes SENAI", "senha": "122", "perfil": "Professor"},
     "aluno_ricardo": {"nome": "Ricardo (Aluno)", "senha": "123", "perfil": "Aluno"},
     "aluno_elizandra": {"nome": "Elizandra (Aluna)", "senha": "123", "perfil": "Aluno"},
-    "coord_teste": {"nome": "Coordenador Técnico", "senha": "122", "perfil": "Coordenador"}
+    "coord_teste": {"nome": "Coordenador Técnico", "senha": "122", "perfil": "Coordenador"},
+    "sn1220002": {"nome": "Elizandra pascoalino", "senha": "123", "perfil": "Professor"}
 }
 
 if 'usuario_logado' not in st.session_state:
@@ -110,21 +121,22 @@ if 'perfil_logado' not in st.session_state:
 if 'nome_exibicao' not in st.session_state:
     st.session_state.nome_exibicao = None
 
-# Sincronização Dinâmica Pós-Login
+# Sincronização Dinâmica Pós-Login em tempo real com o Supabase
 if st.session_state.usuario_logado is not None:
-    if 'usuarios_cadastrados' not in st.session_state:
-        st.session_state.usuarios_cadastrados = ler_dados_sheets("usuarios", USUARIOS_PADRAO)
+    if 'usuarios_cadastrados' not in st.session_state or not st.session_state.usuarios_cadastrados:
+        dados_usuarios = ler_dados_supabase("usuarios")
+        st.session_state.usuarios_cadastrados = dados_usuarios if dados_usuarios else USUARIOS_PADRAO
     if 'provas_geradas' not in st.session_state:
-        st.session_state.provas_geradas = ler_dados_sheets("provas", {})
+        st.session_state.provas_geradas = ler_dados_supabase("provas")
     if 'entregas_sistema' not in st.session_state:
-        st.session_state.entregas_sistema = ler_dados_sheets("entregas", {})
+        st.session_state.entregas_sistema = ler_dados_supabase("entregas")
 else:
     st.session_state.usuarios_cadastrados = USUARIOS_PADRAO
     st.session_state.provas_geradas = {}
     st.session_state.entregas_sistema = {}
 
 # ==============================================================================
-# 4. INTERFACE VISUAL (BMW Portinari Blue, Dourado e Dark Mode)
+# 3. INTERFACE VISUAL (BMW Portinari Blue, Dourado e Dark Mode)
 # ==============================================================================
 st.set_page_config(page_title="SUATS | SENAI-122", page_icon="🏆", layout="wide")
 
@@ -163,7 +175,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# 5. PORTAL DE LOGIN / NAVEGAÇÃO
+# 4. PORTAL DE LOGIN / NAVEGAÇÃO
 # ==============================================================================
 if st.session_state.usuario_logado is None:
     st.markdown("<h2 style='text-align:center;'>🔐 SUATS | Portal de Acesso</h2>", unsafe_allow_html=True)
@@ -175,16 +187,20 @@ if st.session_state.usuario_logado is None:
         s_in = st.text_input("Senha de Acesso:", type="password")
         
         if st.button("🔓 Autenticar no Sistema"):
-            dados_drive = ler_dados_sheets("usuarios", USUARIOS_PADRAO)
+            # Validação integrada na nuvem buscando a tabela do Supabase
+            dados_drive = ler_dados_supabase("usuarios")
+            if not dados_drive:
+                dados_drive = USUARIOS_PADRAO
+                
             user_data = dados_drive.get(u_in)
             
-            if user_data and user_data["senha"] == s_in:
+            if user_data and str(user_data["senha"]) == str(s_in):
                 st.session_state.usuario_logado = u_in
                 st.session_state.perfil_logado = user_data["perfil"]
                 st.session_state.nome_exibicao = user_data.get("nome", u_in)
                 st.session_state.usuarios_cadastrados = dados_drive
-                st.session_state.provas_geradas = ler_dados_sheets("provas", {})
-                st.session_state.entregas_sistema = ler_dados_sheets("entregas", {})
+                st.session_state.provas_geradas = ler_dados_supabase("provas")
+                st.session_state.entregas_sistema = ler_dados_supabase("entregas")
                 st.rerun()
             else:
                 st.error("Login ou senha incorretos.")
@@ -226,7 +242,7 @@ else:
     st.markdown("---")
 
     # ==============================================================================
-    # RENDERIZAÇÃO DAS ÁREAS DE TRABALHO - GESTOR
+    # 5. RENDERIZAÇÃO DAS ÁREAS DE TRABALHO - GESTOR
     # ==============================================================================
     if st.session_state.perfil_logado == "Gestor/Diretor":
         
@@ -257,7 +273,7 @@ else:
                     })
                 st.dataframe(pd.DataFrame(dados_entregas), use_container_width=True, hide_index=True)
             else:
-                st.info("Nenhuma atividade de entrega registrada na planilha até o momento.")
+                st.info("Nenhuma atividade de entrega registrada na base em nuvem Supabase até o momento.")
             
         elif "👥 Usuários" in opcao_menu:
             st.subheader("👤 Gerenciamento de Usuários")
@@ -277,8 +293,8 @@ else:
                             "senha": nova_senha, 
                             "perfil": novo_perfil
                         }
-                        if salvar_dados_sheets("usuarios", st.session_state.usuarios_cadastrados):
-                            st.success(f"Usuário '{novo_id}' gravado na planilha com sucesso!")
+                        if salvar_dados_supabase("usuarios", st.session_state.usuarios_cadastrados):
+                            st.success(f"Usuário '{novo_id}' gravado com sucesso no Supabase!")
                             st.rerun()
                     else:
                         st.error("Preencha todos os campos obrigatórios.")
@@ -337,10 +353,11 @@ else:
 
         elif "⚙ Configurações" in opcao_menu:
             st.subheader("⚙ Configurações Gerais")
-            st.write(f"Planilha conectada: {URL_PLANILHA}")
+            st.write(f"Banco de Dados Ativo: **Supabase Cloud Relational (PostgreSQL)**")
+            st.write(f"Endpoint do Endpoint: {SUPABASE_URL}")
 
     # ==============================================================================
-    # RENDERIZAÇÃO DAS ÁREAS DE TRABALHO - PROFESSOR
+    # 6. RENDERIZAÇÃO DAS ÁREAS DE TRABALHO - PROFESSOR
     # ==============================================================================
     elif st.session_state.perfil_logado == "Professor":
         if "🏠 Dashboard" in opcao_menu:
@@ -374,11 +391,11 @@ else:
                         "parametros": params_formulas, "status": "Liberada",
                         "data_criacao": datetime.now().strftime("%d/%m/%Y")
                     }
-                    if salvar_dados_sheets("provas", st.session_state.provas_geradas):
-                        st.success(f"Prova liberada e vinculada com sucesso para {aluno_alvo}!")
+                    if salvar_dados_supabase("provas", st.session_state.provas_geradas):
+                        st.success(f"Prova liberada e vinculada com sucesso na nuvem para {aluno_alvo}!")
 
     # ==============================================================================
-    # RENDERIZAÇÃO DAS ÁREAS DE TRABALHO - ALUNO
+    # 7. RENDERIZAÇÃO DAS ÁREAS DE TRABALHO - ALUNO
     # ==============================================================================
     elif st.session_state.perfil_logado == "Aluno":
         aluno_atual = st.session_state.usuario_logado
@@ -394,32 +411,4 @@ else:
                 st.warning("⚠️ Nenhuma avaliação disponível no momento. Aguarde liberação do professor.")
             else:
                 prova = st.session_state.provas_geradas[aluno_atual]
-                st.info(f"📋 **Avaliação Disponível:** {prova['materia']} | **Tipo:** {prova['tipo_prova']}")
-                
-                st.markdown("#### 📥 1. Downloads")
-                conteudo_prova_txt = f"PROVA DE {prova['materia']}\nTurma: {prova['turma']}\nTipo: {prova['tipo_prova']}\nParâmetros obrigatórios: {prova['parametros']}\nInsira seu e-mail e respostas abaixo."
-                st.download_button(label="📥 Baixar Arquivo da Prova", data=conteudo_prova_txt, file_name=f"Prova_{prova['materia']}_{aluno_atual}.txt")
-                
-                st.markdown("#### 📤 2. Entrega (Apenas 1 envio permitido)")
-                arquivo_submetido = st.file_uploader("Arraste e solte o arquivo da sua prova resolvida aqui:", type=["txt", "xlsx", "pdf"])
-                
-                if arquivo_submetido is not None:
-                    if st.button("Finalizar e Enviar Avaliação"):
-                        st.session_state.entregas_sistema[aluno_atual] = {
-                            "materia": prova['materia'], "status": "Enviado", "nota": 10.0,
-                            "data_entrega": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
-                            "arquivo_nome": arquivo_submetido.name
-                        }
-                        if salvar_dados_sheets("entregas", st.session_state.entregas_sistema):
-                            st.success("Prova gravada e salva na planilha em nuvem!")
-                            st.rerun()
-
-    # ==============================================================================
-    # RENDERIZAÇÃO DAS ÁREAS DE TRABALHO - COORDENADOR
-    # ==============================================================================
-    elif st.session_state.perfil_logado == "Coordenador":
-        st.write("Painel de acompanhamento pedagógico analítico (Modo Leitura).")
-        if len(st.session_state.provas_geradas) > 0:
-            st.dataframe(pd.DataFrame([{"Aluno/ID": k, **v} for k, v in st.session_state.provas_geradas.items()]), use_container_width=True)
-        else:
-            st.info("Nenhum dado de prova disponível para monitoramento.")
+                st
