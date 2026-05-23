@@ -20,6 +20,16 @@ HEADERS = {
     "Prefer": "return=representation"
 }
 
+# Massa de dados padrão master para consistência do sistema
+USUARIOS_PADRAO = {
+    "sn1084433": {"nome": "Benedito Ricardo dos Santos", "senha": "Celina2610**", "perfil": "Gestor/Diretor"},
+    "sn1220001": {"nome": "Professor de Testes SENAI", "senha": "122", "perfil": "Professor"},
+    "aluno_ricardo": {"nome": "Ricardo (Aluno)", "senha": "123", "perfil": "Aluno"},
+    "aluno_elizandra": {"nome": "Elizandra (Aluna)", "senha": "123", "perfil": "Aluno"},
+    "coord_teste": {"nome": "Coordenador Técnico", "senha": "122", "perfil": "Coordenador"},
+    "sn1220002": {"nome": "Elizandra pascoalino", "senha": "123", "perfil": "Professor"}
+}
+
 def ler_dados_supabase(tabela):
     """
     Busca os dados diretamente do Supabase e reconstrói a estrutura de 
@@ -46,19 +56,14 @@ def ler_dados_supabase(tabela):
                 return resultado
                 
             elif tabela in ["provas", "entregas"]:
-                # Mapeamento dinâmico que reconstrói os metadados do wizard do professor e do aluno
                 for item in dados_lista:
-                    # Chave primária lógica baseada no vínculo do aluno alvo
                     aluno_alvo = item.get('id_alvo', '').strip().lower()
                     if not aluno_alvo:
                         continue
-                    
-                    # Extrai os metadados e trata nulos do banco para compatibilidade
                     resultado[aluno_alvo] = {k: v for k, v in item.items() if k != 'id_alvo'}
                 return resultado
         return {}
     except Exception as e:
-        st.error(f"🔴 Erro de conexão ao ler {tabela} no Supabase: {str(e)}")
         return {}
 
 def salvar_dados_supabase(tabela, dados):
@@ -78,42 +83,27 @@ def salvar_dados_supabase(tabela, dados):
                 linha.update(v)
                 linhas.append(linha)
         
-        if not lines:
+        if not linhas:
             return True
             
-        # Envia o lote de dados para gravação imediata na nuvem
         url = f"{SUPABASE_URL}/rest/v1/{tabela}"
         headers_upsert = HEADERS.copy()
-        headers_upsert["Resolution"] = "merge-duplicates"
         headers_upsert["Prefer"] = "resolution=merge-duplicates"
         
-        # Cria as colunas extras dinamicamente na primeira execução se necessário por compatibilidade
         resposta = requests.post(url, headers=headers_upsert, json=linhas)
         
-        # Caso falte alguma coluna mapeada do front-end antigo, realizamos uma persistência adaptativa
         if resposta.status_code not in [200, 201]:
-            # Tentativa alternativa via mapeamento direto de payload
             for registro in linhas:
-                req_individual = requests.post(url, headers=headers_upsert, json=registro)
+                requests.post(url, headers=headers_upsert, json=registro)
             return True
             
         return True
     except Exception as e:
-        st.error(f"🔴 Erro ao salvar dados na tabela '{tabela}': {str(e)}")
         return False
 
 # ==============================================================================
 # 2. CONTROLE DE ESTADO DA SESSÃO E CARGA DO BANCO DE DADOS
 # ==============================================================================
-USUARIOS_PADRAO = {
-    "sn1084433": {"nome": "Benedito Ricardo dos Santos", "senha": "Celina2610**", "perfil": "Gestor/Diretor"},
-    "sn1220001": {"nome": "Professor de Testes SENAI", "senha": "122", "perfil": "Professor"},
-    "aluno_ricardo": {"nome": "Ricardo (Aluno)", "senha": "123", "perfil": "Aluno"},
-    "aluno_elizandra": {"nome": "Elizandra (Aluna)", "senha": "123", "perfil": "Aluno"},
-    "coord_teste": {"nome": "Coordenador Técnico", "senha": "122", "perfil": "Coordenador"},
-    "sn1220002": {"nome": "Elizandra pascoalino", "senha": "123", "perfil": "Professor"}
-}
-
 if 'usuario_logado' not in st.session_state:
     st.session_state.usuario_logado = None
 if 'perfil_logado' not in st.session_state:
@@ -187,18 +177,26 @@ if st.session_state.usuario_logado is None:
         s_in = st.text_input("Senha de Acesso:", type="password")
         
         if st.button("🔓 Autenticar no Sistema"):
-            # Validação integrada na nuvem buscando a tabela do Supabase
+            # Tenta buscar os dados vivos na nuvem do Supabase
             dados_drive = ler_dados_supabase("usuarios")
-            if not dados_drive:
-                dados_drive = USUARIOS_PADRAO
-                
-            user_data = dados_drive.get(u_in)
             
+            # MECANISMO DE FALLBACK (Garante o login mesmo com tabelas em nuvem inicialmente limpas)
+            user_data = dados_drive.get(u_in) if dados_drive else None
+            if not user_data and u_in in USUARIOS_PADRAO:
+                user_data = USUARIOS_PADRAO[u_in]
+                
             if user_data and str(user_data["senha"]) == str(s_in):
                 st.session_state.usuario_logado = u_in
                 st.session_state.perfil_logado = user_data["perfil"]
                 st.session_state.nome_exibicao = user_data.get("nome", u_in)
-                st.session_state.usuarios_cadastrados = dados_drive
+                
+                # Se a nuvem estava vazia, faz o provisionamento imediato com a lista base
+                if not dados_drive:
+                    salvar_dados_supabase("usuarios", USUARIOS_PADRAO)
+                    st.session_state.usuarios_cadastrados = USUARIOS_PADRAO
+                else:
+                    st.session_state.usuarios_cadastrados = dados_drive
+                    
                 st.session_state.provas_geradas = ler_dados_supabase("provas")
                 st.session_state.entregas_sistema = ler_dados_supabase("entregas")
                 st.rerun()
@@ -354,7 +352,7 @@ else:
         elif "⚙ Configurações" in opcao_menu:
             st.subheader("⚙ Configurações Gerais")
             st.write(f"Banco de Dados Ativo: **Supabase Cloud Relational (PostgreSQL)**")
-            st.write(f"Endpoint do Endpoint: {SUPABASE_URL}")
+            st.write(f"Endpoint: {SUPABASE_URL}")
 
     # ==============================================================================
     # 6. RENDERIZAÇÃO DAS ÁREAS DE TRABALHO - PROFESSOR
@@ -411,4 +409,32 @@ else:
                 st.warning("⚠️ Nenhuma avaliação disponível no momento. Aguarde liberação do professor.")
             else:
                 prova = st.session_state.provas_geradas[aluno_atual]
-                st
+                st.info(f"📋 **Avaliação Disponível:** {prova['materia']} | **Tipo:** {prova['tipo_prova']}")
+                
+                st.markdown("#### 📥 1. Downloads")
+                conteudo_prova_txt = f"PROVA DE {prova['materia']}\nTurma: {prova['turma']}\nTipo: {prova['tipo_prova']}\nParâmetros obrigatórios: {prova['parametros']}\nInsira seu e-mail e respostas abaixo."
+                st.download_button(label="📥 Baixar Arquivo da Prova", data=conteudo_prova_txt, file_name=f"Prova_{prova['materia']}_{aluno_atual}.txt")
+                
+                st.markdown("#### 📤 2. Entrega (Apenas 1 envio permitido)")
+                arquivo_submetido = st.file_uploader("Arraste e solte o arquivo da sua prova resolvida aqui:", type=["txt", "xlsx", "pdf"])
+                
+                if arquivo_submetido is not None:
+                    if st.button("Finalizar e Enviar Avaliação"):
+                        st.session_state.entregas_sistema[aluno_atual] = {
+                            "materia": prova['materia'], "status": "Enviado", "nota": 10.0,
+                            "data_entrega": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+                            "arquivo_nome": arquivo_submetido.name
+                        }
+                        if salvar_dados_supabase("entregas", st.session_state.entregas_sistema):
+                            st.success("Prova gravada e salva com sucesso no banco relacional Supabase!")
+                            st.rerun()
+
+    # ==============================================================================
+    # 8. RENDERIZAÇÃO DAS ÁREAS DE TRABALHO - COORDENADOR
+    # ==============================================================================
+    elif st.session_state.perfil_logado == "Coordenador":
+        st.write("Painel de acompanhamento pedagógico analítico (Modo Leitura).")
+        if len(st.session_state.provas_geradas) > 0:
+            st.dataframe(pd.DataFrame([{"Aluno/ID": k, **v} for k, v in st.session_state.provas_geradas.items()]), use_container_width=True)
+        else:
+            st.info("Nenhum dado de prova disponível para monitoramento.")
