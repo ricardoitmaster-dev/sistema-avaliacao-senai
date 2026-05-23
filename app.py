@@ -10,7 +10,7 @@ import requests
 # 1. CONFIGURAÇÃO E CONEXÃO SEGURA AO SUPABASE (SQL NA NUVEM)
 # ==============================================================================
 SUPABASE_URL = "https://hjtqqshmxpeleywwzgca.supabase.co"
-SUPABASE_KEY = "sb_publishable_Q0gok1Hp7-3El1UOGKDrZw_Ku5QqDbu"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhqdHFxc2hteHBlbGV5d3d6Z2NhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0OTY1NDgsImV4cCI6MjA5NTA3MjU0OH0.4v_EyCfUyE2ZEgqOYdnFNZlHVhG8_Quc9otQ7o8Di_s"
 
 # Cabeçalhos padrão para comunicação com a API REST do Supabase
 HEADERS = {
@@ -173,7 +173,7 @@ if st.session_state.usuario_logado is None:
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         u_in = st.text_input("Login Corporativo (Ex: snXXXXXXX):").strip().lower()
-        s_in = st.text_input("Senha de Acesso:", type="password")
+        s_in = st.text_input("Senha de Acesso:", type="password").strip()
         
         if st.button("🔓 Autenticar no Sistema"):
             dados_drive = ler_dados_supabase("usuarios")
@@ -183,7 +183,8 @@ if st.session_state.usuario_logado is None:
             if not user_data and u_in in USUARIOS_PADRAO:
                 user_data = USUARIOS_PADRAO[u_in]
                 
-            if user_data and str(user_data["senha"]) == str(s_in):
+            # Comparação de senha corrigida com .strip()
+            if user_data and str(user_data.get("senha", "")).strip() == s_in:
                 st.session_state.usuario_logado = u_in
                 st.session_state.perfil_logado = user_data["perfil"]
                 st.session_state.nome_exibicao = user_data.get("nome", u_in)
@@ -279,7 +280,7 @@ else:
                 st.markdown("### Vincular Novo Usuário")
                 novo_id = st.text_input("Login Corporativo:").strip().lower()
                 novo_nome = st.text_input("Nome Completo:")
-                nova_senha = st.text_input("Senha Corporativa:", type="password")
+                nova_senha = st.text_input("Senha Corporativa:", type="password").strip()
                 novo_perfil = st.selectbox("Perfil de Acesso:", ["Aluno", "Professor", "Coordenador", "Gestor/Diretor"])
                 
                 if st.button("Salvar Usuário"):
