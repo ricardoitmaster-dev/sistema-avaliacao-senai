@@ -512,3 +512,5 @@ else:
                 st.info("Nenhum dado de avaliação disponível para monitoramento.")
         else:
             st.info("Navegue utilizando os menus ativos da coordenação técnica.")
+    
+    "Backup estável - SUATS funcional com Supabase"
