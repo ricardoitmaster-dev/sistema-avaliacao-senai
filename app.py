@@ -448,28 +448,71 @@ else:
             lista_alunos = [k for k, v in st.session_state.usuarios_cadastrados.items() if v["perfil"] == "Aluno"]
             aluno_alvo = st.selectbox("Liberar acesso exclusivo para o discente:", lista_alunos if lista_alunos else ["Nenhum aluno cadastrado"])
             
-            # --- CORREÇÃO APLICADA AQUI: BOTÃO COM ESTADO DE LOADING E TOAST ---
-            if st.button("🚀 Finalizar, Gerar e Liberar Prova", disabled=st.session_state.loading):
-                if materia and aluno_alvo != "Nenhum aluno cadastrado":
-                    st.session_state.loading = True
-                    
-                    st.session_state.provas_geradas[aluno_alvo] = {
-                        "area": area, "curso": curso, "materia": materia, "turma": turma,
-                        "unidade": unidade, "tipo_prova": tipo_prova, "modo": modo_criacao,
-                        "parametros": params_formulas, "status": "Liberada",
-                        "data_criacao": datetime.now().strftime("%d/%m/%Y")
-                    }
-                    
-                    with st.spinner("Salvando avaliação no banco de dados..."):
-                        if salvar_dados_supabase("provas", st.session_state.provas_geradas):
-                            st.toast(f"Sucesso! Avaliação liberada na nuvem para o aluno: {aluno_alvo}", icon="✅")
-                            st.session_state.loading = False
-                            st.rerun()
-                        else:
-                            st.error("Erro de conexão. Não foi possível salvar no Supabase.")
-                            st.session_state.loading = False
-                else:
-                    st.warning("Por favor, preencha o nome da disciplina e certifique-se de que há um aluno selecionado.")
+            # =========================
+# SALVAR E LIBERAR PROVA
+# =========================
+if st.button(
+    "🚀 Finalizar, Gerar e Liberar Prova",
+    disabled=st.session_state.loading
+):
+
+    if not materia:
+        st.warning("Por favor, informe a disciplina.")
+        st.stop()
+
+    if aluno_alvo == "Nenhum aluno cadastrado":
+        st.warning("Nenhum aluno disponível para vinculação.")
+        st.stop()
+
+    st.session_state.loading = True
+
+    prova_nova = {
+        "area": area,
+        "curso": curso,
+        "materia": materia,
+        "turma": turma,
+        "unidade": unidade,
+        "tipo_prova": tipo_prova,
+        "modo": modo_criacao,
+        "parametros": params_formulas,
+        "status": "Liberada",
+        "data_criacao": datetime.now().strftime("%d/%m/%Y")
+    }
+
+    # Salva localmente primeiro
+    st.session_state.provas_geradas[aluno_alvo] = prova_nova
+
+    # Salva apenas a prova do aluno selecionado
+    prova_individual = {
+        aluno_alvo: prova_nova
+    }
+
+    with st.spinner(
+        "Salvando avaliação no banco de dados..."
+    ):
+
+        resultado = salvar_dados_supabase(
+            "provas",
+            prova_individual
+        )
+
+    st.session_state.loading = False
+
+    if resultado:
+        st.success(
+            f"✅ Avaliação liberada com sucesso para o aluno: {aluno_alvo}"
+        )
+
+        # Atualiza cache local do Supabase
+        st.session_state.provas_geradas = (
+            ler_dados_supabase("provas")
+        )
+
+    else:
+        st.error(
+            "❌ Erro ao salvar no Supabase. "
+            "Veja a mensagem vermelha acima."
+        )
 
         elif "📚 Banco de Questões" in opcao_menu:
             st.subheader("📚 Banco de Questões Integrado")
