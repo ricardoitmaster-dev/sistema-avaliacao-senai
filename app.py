@@ -105,6 +105,8 @@ if 'perfil_logado' not in st.session_state:
     st.session_state.perfil_logado = None
 if 'nome_exibicao' not in st.session_state:
     st.session_state.nome_exibicao = None
+if 'loading' not in st.session_state: # Nova variável de controle
+    st.session_state.loading = False
 
 # Sincronização Dinâmica estável pós-autenticação
 if st.session_state.usuario_logado is not None:
@@ -278,7 +280,6 @@ else:
             
             with col_form:
                 st.markdown("### Vincular Novo Usuário")
-                # Utilizando st.form para limpar campos automaticamente após envio
                 with st.form("form_novo_usuario", clear_on_submit=True):
                     novo_id = st.text_input("Login Corporativo:").strip().lower()
                     novo_nome = st.text_input("Nome Completo:")
@@ -289,15 +290,12 @@ else:
                     
                     if submit_button:
                         if novo_id and novo_nome and nova_senha:
-                            # Prepara dicionário temporário apenas com este usuário
                             novo_usuario_dict = {novo_id: {"nome": novo_nome, "senha": nova_senha, "perfil": novo_perfil}}
                             
-                            # Tenta salvar no Supabase
                             if salvar_dados_supabase("usuarios", novo_usuario_dict):
-                                # Atualiza estado local apenas se salvou com sucesso
                                 st.session_state.usuarios_cadastrados[novo_id] = novo_usuario_dict[novo_id]
                                 st.success(f"Usuário '{novo_id}' cadastrado com sucesso!")
-                                st.rerun() # Atualiza a tabela
+                                st.rerun() 
                             else:
                                 st.error("Erro ao salvar no banco de dados. Verifique a conexão.")
                         else:
@@ -402,25 +400,31 @@ else:
             
             st.markdown("---")
             st.markdown("##### **Etapa 5: Vinculação de Aluno Alvo**")
-            # Filtra e lista apenas os usuários que possuem perfil de aluno
             lista_alunos = [k for k, v in st.session_state.usuarios_cadastrados.items() if v["perfil"] == "Aluno"]
             aluno_alvo = st.selectbox("Liberar acesso exclusivo para o discente:", lista_alunos if lista_alunos else ["Nenhum aluno cadastrado"])
             
-            if st.button("🚀 Finalizar, Gerar e Liberar Prova"):
+            # --- BOTÃO CORRIGIDO COM ESTADO DE CARREGAMENTO ---
+            if st.button("🚀 Finalizar, Gerar e Liberar Prova", disabled=st.session_state.loading):
                 if materia and aluno_alvo != "Nenhum aluno cadastrado":
-                    # Atualiza o estado
+                    st.session_state.loading = True # Bloqueia durante o salvamento
+                    
+                    # Atualiza o estado local
                     st.session_state.provas_geradas[aluno_alvo] = {
                         "area": area, "curso": curso, "materia": materia, "turma": turma,
                         "unidade": unidade, "tipo_prova": tipo_prova, "modo": modo_criacao,
                         "parametros": params_formulas, "status": "Liberada",
                         "data_criacao": datetime.now().strftime("%d/%m/%Y")
                     }
-                    # Tenta salvar com feedback
+                    
+                    # Tenta salvar no Supabase
                     with st.spinner("Salvando avaliação no banco de dados..."):
                         if salvar_dados_supabase("provas", st.session_state.provas_geradas):
                             st.success(f"Sucesso! Avaliação liberada na nuvem para o aluno: {aluno_alvo}")
                         else:
                             st.error("❌ Erro ao conectar com o banco de dados. Tente novamente.")
+                    
+                    st.session_state.loading = False # Libera o botão
+                    st.rerun() # Força a atualização da interface
                 else:
                     st.error("Por favor, preencha o nome da disciplina e certifique-se de que há um aluno selecionado.")
 
