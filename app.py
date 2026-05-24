@@ -399,28 +399,38 @@ else:
 
         elif "⚙ Configurações" in opcao_menu:
             st.subheader("⚙ Configurações Gerais do Sistema")
-            st.write(f"Banco de Dados Ativo: **Supabase Cloud Relational (PostgreSQL)**")
-            st.write(f"Endpoint Conexão: {SUPABASE_URL}")
 
-# ==============================================================================
-# 6. MÓDULO PEDAGÓGICO - PROFESSOR
-# ==============================================================================
-elif st.session_state.perfil_logado == "Professor":
+            st.write(
+                "Banco de Dados Ativo: "
+                "**Supabase Cloud Relational (PostgreSQL)**"
+            )
 
-    if "🏠 Dashboard" in opcao_menu:
-        st.subheader("📊 Painel de Controle Geral do Docente")
-        st.write(
-            "Acompanhe o status das avaliações e entregas feitas pelos alunos na nuvem."
-        )
+            st.write(
+                f"Endpoint Conexão: {SUPABASE_URL}"
+            )
 
-        c1, c2 = st.columns(2)
+    # ==============================================================================
+    # 6. MÓDULO PEDAGÓGICO - PROFESSOR
+    # ==============================================================================
+    elif st.session_state.perfil_logado == "Professor":
 
-        c1.metric(
-            "Provas Criadas por Você",
-            len(st.session_state.provas_geradas)
-        )
+        if "🏠 Dashboard" in opcao_menu:
+            st.subheader("📊 Painel de Controle Geral do Docente")
+            st.write(
+                "Acompanhe o status das avaliações e entregas feitas pelos alunos na nuvem."
+            )
 
-        c2.metric(
+            c1, c2 = st.columns(2)
+
+            c1.metric(
+                "Provas Criadas por Você",
+                len(st.session_state.provas_geradas)
+            )
+
+            c2.metric(
+                "Entregas Prontas para Correção",
+                len(st.session_state.entregas_sistema)
+            )
             "Entregas Prontas para Correção",
             len(st.session_state.entregas_sistema)
         )
