@@ -99,14 +99,17 @@ def salvar_dados_supabase(tabela, dados):
 # ==============================================================================
 # 2. CONTROLE DE ESTADO DA SESSÃO E INICIALIZAÇÃO DE VARIÁVEIS
 # ==============================================================================
+# --- INICIALIZAÇÃO SEGURA DO ESTADO ---
+# Garante que as variáveis existam imediatamente
+if 'loading' not in st.session_state:
+    st.session_state.loading = False
 if 'usuario_logado' not in st.session_state:
     st.session_state.usuario_logado = None
 if 'perfil_logado' not in st.session_state:
     st.session_state.perfil_logado = None
 if 'nome_exibicao' not in st.session_state:
     st.session_state.nome_exibicao = None
-if 'loading' not in st.session_state:
-    st.session_state.loading = False
+# --------------------------------------
 
 # Sincronização Dinâmica estável pós-autenticação
 if st.session_state.usuario_logado is not None:
