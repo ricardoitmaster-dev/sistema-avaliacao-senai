@@ -467,18 +467,34 @@ else:
 
             st.markdown("---")
 
-            st.markdown(
-                "##### **Etapa 3: Modo de Geração**"
-            )
-
-            modo_criacao = st.radio(
-                "Escolha o método de confecção:",
+            st.markdown("##### **Etapa 3: Configuração Avançada da Prova**")
+            
+            tipo_questao = st.selectbox(
+                "Tipo de questão:",
                 [
-                    "Automática (Padrão Exposto via Matriz de Competência)",
-                    "Manual (Inserir Questões Personalizadas)"
+                    "Múltipla Escolha",
+                    "Dissertativa",
+                    "Mista"
                 ]
             )
-
+            
+            origem_questoes = st.selectbox(
+                "Origem das questões:",
+                [
+                    "Sistema Automático",
+                    "Banco de Questões",
+                    "IA (ChatGPT Contextualizada)"
+                ]
+            )
+            
+            nivel_dificuldade = st.selectbox(
+                "Nível de dificuldade:",
+                [
+                    "Básico",
+                    "Intermediário",
+                    "Avançado"
+                ]
+            )
             st.markdown("---")
 
             st.markdown(
