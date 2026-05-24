@@ -408,14 +408,19 @@ else:
             
             if st.button("🚀 Finalizar, Gerar e Liberar Prova"):
                 if materia and aluno_alvo != "Nenhum aluno cadastrado":
+                    # Atualiza o estado
                     st.session_state.provas_geradas[aluno_alvo] = {
                         "area": area, "curso": curso, "materia": materia, "turma": turma,
                         "unidade": unidade, "tipo_prova": tipo_prova, "modo": modo_criacao,
                         "parametros": params_formulas, "status": "Liberada",
                         "data_criacao": datetime.now().strftime("%d/%m/%Y")
                     }
-                    if salvar_dados_supabase("provas", st.session_state.provas_geradas):
-                        st.success(f"Sucesso! Avaliação liberada na nuvem para o aluno: {aluno_alvo}")
+                    # Tenta salvar com feedback
+                    with st.spinner("Salvando avaliação no banco de dados..."):
+                        if salvar_dados_supabase("provas", st.session_state.provas_geradas):
+                            st.success(f"Sucesso! Avaliação liberada na nuvem para o aluno: {aluno_alvo}")
+                        else:
+                            st.error("❌ Erro ao conectar com o banco de dados. Tente novamente.")
                 else:
                     st.error("Por favor, preencha o nome da disciplina e certifique-se de que há um aluno selecionado.")
 
