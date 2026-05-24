@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import random
 from datetime import datetime
 import streamlit as st
 import pandas as pd
@@ -492,6 +493,20 @@ else:
 
             st.markdown(
                 "##### **Etapa 5: Vinculação de Aluno Alvo**"
+            )
+            st.markdown("##### 🧠 Configuração Inteligente da Prova")
+
+            num_questoes = st.number_input(
+                "Número de questões:",
+                min_value=1,
+                max_value=30,
+                value=5
+            )
+
+            num_alternativas = st.selectbox(
+                "Número de alternativas:",
+                [2, 3, 4, 5],
+                index=2
             )
 
             lista_alunos = [
