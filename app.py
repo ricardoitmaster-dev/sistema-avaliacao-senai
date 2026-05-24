@@ -1,6 +1,3 @@
-Opcção 1.
-Parte 1:
-
 import os
 import sys
 import json
