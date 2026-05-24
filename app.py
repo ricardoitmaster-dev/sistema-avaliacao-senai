@@ -652,18 +652,28 @@ else:
                 st.warning("⚠️ Nenhuma avaliação disponível para o seu usuário neste momento. Aguarde liberação.")
             else:
                 prova = st.session_state.provas_geradas[aluno_atual]
-                st.info(f"📋 **Avaliação Disponível:** {prova['materia']} | **Tipo:** {prova['tipo_prova']}")
+                st.info(f"📋 Avaliação: {prova['materia']} | Tipo: {prova['tipo_prova']}")
                 
-                st.markdown("#### 📥 1. Downloads de Arquivos Base")
-                conteudo_prova_txt = f"PROVA DE {prova['materia']}\nTurma: {prova['turma']}\nTipo: {prova['tipo_prova']}\nParâmetros obrigatórios: {prova['parametros']}\nInsira seu e-mail e respostas abaixo."
-                st.download_button(
-                    label="📥 Baixar Arquivo de Orientações da Prova", 
-                    data=conteudo_prova_txt, 
-                    file_name=f"Prova_{prova['materia']}_{aluno_atual}.txt"
-                )
+                st.markdown("## 🧪 Prova Online")
+                
+                respostas_aluno = []
+                
+                for i, q in enumerate(prova["questoes"]):
+                    st.markdown(f"### Questão {i+1}")
+                    st.write(q["enunciado"])
+                
+                    alternativas = list(q["alternativas"].keys())
+                
+                    resposta = st.radio(
+                        f"Escolha sua resposta - Q{i+1}",
+                        alternativas,
+                        key=f"q_{i}"
+                    )
+                
+                    respostas_aluno.append(resposta)
                 
                 st.markdown("---")
-                st.markdown("#### 📤 2. Entrega Oficial da Solução (Apenas 1 envio permitido)")
+                st.markdown("#### 📤 Finalização da Prova")
                 arquivo_submetido = st.file_uploader("Arraste e solte o arquivo da sua prova resolvida aqui (Excel, PDF ou TXT):", type=["txt", "xlsx", "pdf"])
                 
                 if arquivo_submetido is not None:
