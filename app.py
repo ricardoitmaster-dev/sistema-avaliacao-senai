@@ -1,3 +1,6 @@
+Opcção 1.
+Parte 1:
+
 import os
 import sys
 import json
@@ -198,6 +201,9 @@ st.markdown("""
     }
     div[data-testid="stMetricLabel"] {
         color: #F4F4F6 !important;
+
+Parte 2:
+
     }
     .css-19v6m80 {
         background-color: #161925 !important;
@@ -398,6 +404,9 @@ else:
             st.code(f"[{datetime.now().strftime('%Y-%m-%d %H:%M')}] Usuário {st.session_state.usuario_logado} carregou o painel administrativo master.")
 
         elif "⚙ Configurações" in opcao_menu:
+
+Parte 3: 
+
             st.subheader("⚙ Configurações Gerais do Sistema")
             st.write(f"Banco de Dados Ativo: **Supabase Cloud Relational (PostgreSQL)**")
             st.write(f"Endpoint Conexão: {SUPABASE_URL}")
@@ -415,62 +424,159 @@ else:
             
         elif "➕ Criar Avaliação" in opcao_menu:
             st.subheader("⚙️ Wizard Profissional de Criação de Exames")
-            
+
             st.markdown("##### **Etapa 1: Informações de Identificação da Disciplina**")
+
             col1, col2 = st.columns(2)
+
             with col1:
-                area = st.text_input("Área Técnica:", "METALMECÂNICA / TI").strip().upper()
-                curso = st.text_input("Nome do Curso:", "TÉCNICO EM INFORMÁTICA").strip().upper()
-                materia = st.text_input("Componente Curricular (Disciplina):").strip().upper()
+                area = st.text_input(
+                    "Área Técnica:",
+                    "METALMECÂNICA / TI"
+                ).strip().upper()
+
+                curso = st.text_input(
+                    "Nome do Curso:",
+                    "TÉCNICO EM INFORMÁTICA"
+                ).strip().upper()
+
+                materia = st.text_input(
+                    "Componente Curricular (Disciplina):"
+                ).strip().upper()
+
             with col2:
-                turma = st.text_input("Identificador da Turma (Ex: 1TIND):").strip().upper()
-                unidade = st.text_input("Unidade Escolar SENAI:", "SENAI-122 GUARULHOS").strip().upper()
-            
+                turma = st.text_input(
+                    "Identificador da Turma (Ex: 1TIND):"
+                ).strip().upper()
+
+                unidade = st.text_input(
+                    "Unidade Escolar SENAI:",
+                    "SENAI-122 GUARULHOS"
+                ).strip().upper()
+
             st.markdown("---")
-            st.markdown("##### **Etapa 2: Seleção de Modelo de Exame**")
-            tipo_prova = st.selectbox("Selecione o modelo operacional:", [
-                "Dissertativa Completa", "Múltiplas Escolhas Estruturadas", "Resolução de Problema Prático", "Avaliação Híbrida"
-            ])
-            
+
+            st.markdown(
+                "##### **Etapa 2: Seleção de Modelo de Exame**"
+            )
+
+            tipo_prova = st.selectbox(
+                "Selecione o modelo operacional:",
+                [
+                    "Dissertativa Completa",
+                    "Múltiplas Escolhas Estruturadas",
+                    "Resolução de Problema Prático",
+                    "Avaliação Híbrida"
+                ]
+            )
+
             st.markdown("---")
-            st.markdown("##### **Etapa 3: Modo de Geração**")
-            modo_criacao = st.radio("Escolha o método de confecção:", [
-                "Automática (Padrão Exposto via Matriz de Competência)", "Manual (Inserir Questões Personalizadas)"
-            ])
-            
+
+            st.markdown(
+                "##### **Etapa 3: Modo de Geração**"
+            )
+
+            modo_criacao = st.radio(
+                "Escolha o método de confecção:",
+                [
+                    "Automática (Padrão Exposto via Matriz de Competência)",
+                    "Manual (Inserir Questões Personalizadas)"
+                ]
+            )
+
             st.markdown("---")
-            st.markdown("##### **Etapa 4: Configuração de Parâmetros Técnicos**")
-            params_formulas = st.text_area("Insira as funções/fórmulas obrigatórias para este exame (Ex: PROCV, INDEX/MATCH, SE, VBA):")
-            
+
+            st.markdown(
+                "##### **Etapa 4: Configuração de Parâmetros Técnicos**"
+            )
+
+            params_formulas = st.text_area(
+                "Insira as funções/fórmulas obrigatórias para este exame (Ex: PROCV, INDEX/MATCH, SE, VBA):"
+            )
+
             st.markdown("---")
-            st.markdown("##### **Etapa 5: Vinculação de Aluno Alvo**")
-            # Filtra e lista apenas os usuários que possuem perfil de aluno
-            lista_alunos = [k for k, v in st.session_state.usuarios_cadastrados.items() if v["perfil"] == "Aluno"]
-            aluno_alvo = st.selectbox("Liberar acesso exclusivo para o discente:", lista_alunos if lista_alunos else ["Nenhum aluno cadastrado"])
-            
-            # --- CORREÇÃO APLICADA AQUI: BOTÃO COM ESTADO DE LOADING E TOAST ---
-            if st.button("🚀 Finalizar, Gerar e Liberar Prova", disabled=st.session_state.loading):
-                if materia and aluno_alvo != "Nenhum aluno cadastrado":
+
+            st.markdown(
+                "##### **Etapa 5: Vinculação de Aluno Alvo**"
+            )
+
+            lista_alunos = [
+                k for k, v in
+                st.session_state.usuarios_cadastrados.items()
+                if v["perfil"] == "Aluno"
+            ]
+
+            aluno_alvo = st.selectbox(
+                "Liberar acesso exclusivo para o discente:",
+                lista_alunos if lista_alunos
+                else ["Nenhum aluno cadastrado"]
+            )
+
+            # ==========================
+            # BOTÃO GERAR PROVA
+            # ==========================
+            if st.button(
+                "🚀 Finalizar, Gerar e Liberar Prova",
+                disabled=st.session_state.loading
+            ):
+
+                if not materia:
+                    st.warning(
+                        "Por favor, informe a disciplina."
+                    )
+
+                elif aluno_alvo == "Nenhum aluno cadastrado":
+                    st.warning(
+                        "Nenhum aluno disponível."
+                    )
+
+                else:
                     st.session_state.loading = True
-                    
-                    st.session_state.provas_geradas[aluno_alvo] = {
-                        "area": area, "curso": curso, "materia": materia, "turma": turma,
-                        "unidade": unidade, "tipo_prova": tipo_prova, "modo": modo_criacao,
-                        "parametros": params_formulas, "status": "Liberada",
+
+                    prova_nova = {
+                        "area": area,
+                        "curso": curso,
+                        "materia": materia,
+                        "turma": turma,
+                        "unidade": unidade,
+                        "tipo_prova": tipo_prova,
+                        "modo": modo_criacao,
+                        "parametros": params_formulas,
+                        "status": "Liberada",
                         "data_criacao": datetime.now().strftime("%d/%m/%Y")
                     }
-                    
-                    with st.spinner("Salvando avaliação no banco de dados..."):
-                        if salvar_dados_supabase("provas", st.session_state.provas_geradas):
-                            st.toast(f"Sucesso! Avaliação liberada na nuvem para o aluno: {aluno_alvo}", icon="✅")
-                            st.session_state.loading = False
-                            st.rerun()
-                        else:
-                            st.error("Erro de conexão. Não foi possível salvar no Supabase.")
-                            st.session_state.loading = False
-                else:
-                    st.warning("Por favor, preencha o nome da disciplina e certifique-se de que há um aluno selecionado.")
 
+                    st.session_state.provas_geradas[
+                        aluno_alvo
+                    ] = prova_nova
+
+                    prova_individual = {
+                        aluno_alvo: prova_nova
+                    }
+
+                    with st.spinner(
+                        "Salvando avaliação no banco de dados..."
+                    ):
+                        resultado = salvar_dados_supabase(
+                            "provas",
+                            prova_individual
+                        )
+
+                    st.session_state.loading = False
+
+                    if resultado:
+                        st.success(
+                            f"✅ Avaliação liberada com sucesso para o aluno: {aluno_alvo}"
+                        )
+
+                        st.session_state.provas_geradas = (
+                            ler_dados_supabase("provas")
+                        )
+
+                    else:
+                        st.error(
+                            "❌ Erro ao salvar no Supabase."
+                        )
         elif "📚 Banco de Questões" in opcao_menu:
             st.subheader("📚 Banco de Questões Integrado")
             st.info("Módulo em sincronia contínua. Permite resgatar itens avaliativos pré-configurados da matriz SENAI.")
