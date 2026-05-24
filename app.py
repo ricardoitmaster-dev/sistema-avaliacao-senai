@@ -105,7 +105,7 @@ if 'perfil_logado' not in st.session_state:
     st.session_state.perfil_logado = None
 if 'nome_exibicao' not in st.session_state:
     st.session_state.nome_exibicao = None
-if 'loading' not in st.session_state: # Nova variável de controle
+if 'loading' not in st.session_state:
     st.session_state.loading = False
 
 # Sincronização Dinâmica estável pós-autenticação
