@@ -405,20 +405,20 @@ else:
     # ==============================================================================
     # 6. MÓDULO PEDAGÓGICO - PROFESSOR
     # ==============================================================================
-    elif st.session_state.perfil_logado == "Professor":
-        if "🏠 Dashboard" in opcao_menu:
-            st.subheader("📊 Painel de Controle Geral do Docente")
-            st.write("Acompanhe o status das avaliações e entregas feitas pelos alunos na nuvem.")
+elif st.session_state.perfil_logado == "Professor":
+    if "🏠 Dashboard" in opcao_menu:
+        st.subheader("📊 Painel de Controle Geral do Docente")
+        st.write("Acompanhe o status das avaliações e entregas feitas pelos alunos na nuvem.")
             c1, c2 = st.columns(2)
             c1.metric("Provas Criadas por Você", len(st.session_state.provas_geradas))
             c2.metric("Entregas Prontas para Correção", len(st.session_state.entregas_sistema))
             
-elif "➕ Criar Avaliação" in opcao_menu:
-    st.subheader("⚙️ Wizard Profissional de Criação de Exames")
+    elif "➕ Criar Avaliação" in opcao_menu:
+        st.subheader("⚙️ Wizard Profissional de Criação de Exames")
 
-    st.markdown(
-        "##### **Etapa 1: Informações de Identificação da Disciplina**"
-    )
+        st.markdown(
+            "##### **Etapa 1: Informações de Identificação da Disciplina**"
+        )
 
     col1, col2 = st.columns(2)
 
