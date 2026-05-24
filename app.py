@@ -255,7 +255,7 @@ else:
                 "🏠 Dashboard Geral", "👥 Usuários", "🏫 Turmas", "👨‍🏫 Professores", 
                 "📝 Avaliações", "📊 Analytics", "📁 Relatórios", "🛡 Auditoria", "⚙ Configurações"
             ])
-        elif st.session_state.perfil_logado == "Professor":
+        if st.session_state.perfil_logado == "Professor":
             opcao_menu = st.radio("Menu de Navegação", [
                 "🏠 Dashboard", "➕ Criar Avaliação", "📚 Banco de Questões", 
                 "📝 Avaliações Ativas", "📤 Entregas", "📊 Relatórios", "⚙ Configurações"
