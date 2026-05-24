@@ -401,9 +401,6 @@ else:
             st.code(f"[{datetime.now().strftime('%Y-%m-%d %H:%M')}] Usuário {st.session_state.usuario_logado} carregou o painel administrativo master.")
 
         elif "⚙ Configurações" in opcao_menu:
-
-Parte 3: 
-
             st.subheader("⚙ Configurações Gerais do Sistema")
             st.write(f"Banco de Dados Ativo: **Supabase Cloud Relational (PostgreSQL)**")
             st.write(f"Endpoint Conexão: {SUPABASE_URL}")
