@@ -70,30 +70,67 @@ def ler_dados_supabase(tabela):
 
 def salvar_dados_supabase(tabela, dados):
     """
-    Realiza o envio seguro de dados (UPSERT) para a nuvem.
+    Salva dados no Supabase com UPSERT estável
+    e exibe erro real caso exista.
     """
     try:
         linhas = []
+
         if tabela == "usuarios":
             for k, v in dados.items():
-                linhas.append({"id": k, "nome": v["nome"], "senha": v["senha"], "perfil": v["perfil"]})
-                
+                linhas.append({
+                    "id": k,
+                    "nome": v["nome"],
+                    "senha": v["senha"],
+                    "perfil": v["perfil"]
+                })
+
+            chave_conflito = "id"
+
         elif tabela in ["provas", "entregas"]:
             for k, v in dados.items():
                 linha = {"id_alvo": k}
                 linha.update(v)
                 linhas.append(linha)
-        
+
+            chave_conflito = "id_alvo"
+
+        else:
+            return False
+
         if not linhas:
             return True
-            
-        url = f"{SUPABASE_URL}/rest/v1/{tabela}"
+
+        url = (
+            f"{SUPABASE_URL}/rest/v1/{tabela}"
+            f"?on_conflict={chave_conflito}"
+        )
+
         headers_upsert = HEADERS.copy()
-        headers_upsert["Prefer"] = "resolution=merge-duplicates"
-        
-        resposta = requests.post(url, headers=headers_upsert, json=linhas, timeout=5)
-        return resposta.status_code in [200, 201]
-    except Exception:
+        headers_upsert["Prefer"] = (
+            "resolution=merge-duplicates,"
+            "return=representation"
+        )
+
+        resposta = requests.post(
+            url,
+            headers=headers_upsert,
+            json=linhas,
+            timeout=15
+        )
+
+        # MOSTRAR O ERRO REAL
+        if resposta.status_code not in [200, 201]:
+            st.error(
+                f"Erro Supabase ({resposta.status_code}): "
+                f"{resposta.text}"
+            )
+            return False
+
+        return True
+
+    except Exception as e:
+        st.error(f"Erro Python: {str(e)}")
         return False
 
 # ==============================================================================
