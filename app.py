@@ -402,400 +402,581 @@ else:
             st.write(f"Banco de Dados Ativo: **Supabase Cloud Relational (PostgreSQL)**")
             st.write(f"Endpoint Conexão: {SUPABASE_URL}")
 
-    # ==============================================================================
-    # 6. MÓDULO PEDAGÓGICO - PROFESSOR
-    # ==============================================================================
+# ==============================================================================
+# 6. MÓDULO PEDAGÓGICO - PROFESSOR
+# ==============================================================================
 elif st.session_state.perfil_logado == "Professor":
+
     if "🏠 Dashboard" in opcao_menu:
         st.subheader("📊 Painel de Controle Geral do Docente")
-        st.write("Acompanhe o status das avaliações e entregas feitas pelos alunos na nuvem.")
-            c1, c2 = st.columns(2)
-            c1.metric("Provas Criadas por Você", len(st.session_state.provas_geradas))
-            c2.metric("Entregas Prontas para Correção", len(st.session_state.entregas_sistema))
-            
+        st.write(
+            "Acompanhe o status das avaliações e entregas feitas pelos alunos na nuvem."
+        )
+
+        c1, c2 = st.columns(2)
+
+        c1.metric(
+            "Provas Criadas por Você",
+            len(st.session_state.provas_geradas)
+        )
+
+        c2.metric(
+            "Entregas Prontas para Correção",
+            len(st.session_state.entregas_sistema)
+        )
+
     elif "➕ Criar Avaliação" in opcao_menu:
-        st.subheader("⚙️ Wizard Profissional de Criação de Exames")
+
+        st.subheader(
+            "⚙️ Wizard Profissional de Criação de Exames"
+        )
 
         st.markdown(
             "##### **Etapa 1: Informações de Identificação da Disciplina**"
         )
 
-    col1, col2 = st.columns(2)
+        col1, col2 = st.columns(2)
 
-    with col1:
-        area = st.text_input(
-            "Área Técnica:",
-            "METALMECÂNICA / TI"
-        ).strip().upper()
+        with col1:
+            area = st.text_input(
+                "Área Técnica:",
+                "METALMECÂNICA / TI"
+            ).strip().upper()
 
-        curso = st.text_input(
-            "Nome do Curso:",
-            "TÉCNICO EM INFORMÁTICA"
-        ).strip().upper()
+            curso = st.text_input(
+                "Nome do Curso:",
+                "TÉCNICO EM INFORMÁTICA"
+            ).strip().upper()
 
-        materia = st.text_input(
-            "Componente Curricular (Disciplina):"
-        ).strip().upper()
+            materia = st.text_input(
+                "Componente Curricular (Disciplina):"
+            ).strip().upper()
 
-    with col2:
-        turma = st.text_input(
-            "Identificador da Turma (Ex: 1TIND):"
-        ).strip().upper()
+        with col2:
+            turma = st.text_input(
+                "Identificador da Turma (Ex: 1TIND):"
+            ).strip().upper()
 
-        unidade = st.text_input(
-            "Unidade Escolar SENAI:",
-            "SENAI-122 GUARULHOS"
-        ).strip().upper()
+            unidade = st.text_input(
+                "Unidade Escolar SENAI:",
+                "SENAI-122 GUARULHOS"
+            ).strip().upper()
 
-    st.markdown("---")
+        st.markdown("---")
 
-    st.markdown(
-        "##### **Etapa 2: Seleção de Modelo de Exame**"
-    )
+        st.markdown(
+            "##### **Etapa 2: Seleção de Modelo de Exame**"
+        )
 
-    tipo_prova = st.selectbox(
-        "Selecione o modelo operacional:",
-        [
-            "Dissertativa Completa",
-            "Múltiplas Escolhas Estruturadas",
-            "Resolução de Problema Prático",
-            "Avaliação Híbrida"
+        tipo_prova = st.selectbox(
+            "Selecione o modelo operacional:",
+            [
+                "Dissertativa Completa",
+                "Múltiplas Escolhas Estruturadas",
+                "Resolução de Problema Prático",
+                "Avaliação Híbrida"
+            ]
+        )
+
+        st.markdown("---")
+
+        st.markdown(
+            "##### **Etapa 3: Modo de Geração**"
+        )
+
+        modo_criacao = st.radio(
+            "Escolha o método de confecção:",
+            [
+                "Automática (Padrão Exposto via Matriz de Competência)",
+                "Manual (Inserir Questões Personalizadas)"
+            ]
+        )
+
+        st.markdown("---")
+
+        st.markdown(
+            "##### **Etapa 4: Configuração Pedagógica**"
+        )
+
+        quantidade_questoes = st.number_input(
+            "Quantidade de questões da prova:",
+            min_value=1,
+            max_value=50,
+            value=10,
+            step=1
+        )
+
+        params_formulas = st.text_area(
+            "Insira conteúdos, fórmulas, funções ou competências obrigatórias da prova:"
+        )
+
+        st.markdown("---")
+
+        st.markdown(
+            "##### **Etapa 5: Vinculação de Aluno Alvo**"
+        )
+
+        lista_alunos = [
+            k for k, v in
+            st.session_state.usuarios_cadastrados.items()
+            if v["perfil"] == "Aluno"
         ]
-    )
 
-    st.markdown("---")
+        aluno_alvo = st.selectbox(
+            "Liberar acesso exclusivo para o discente:",
+            lista_alunos
+            if lista_alunos
+            else ["Nenhum aluno cadastrado"]
+        )
 
-    st.markdown(
-        "##### **Etapa 3: Modo de Geração**"
-    )
+        if st.button(
+            "🚀 Finalizar, Gerar e Liberar Prova",
+            disabled=st.session_state.loading
+        ):
 
-    modo_criacao = st.radio(
-        "Escolha o método de confecção:",
-        [
-            "Automática (Padrão Exposto via Matriz de Competência)",
-            "Manual (Inserir Questões Personalizadas)"
-        ]
-    )
+            if not materia:
+                st.warning(
+                    "Por favor, informe a disciplina."
+                )
 
-    st.markdown("---")
+            elif aluno_alvo == "Nenhum aluno cadastrado":
+                st.warning(
+                    "Nenhum aluno disponível."
+                )
 
-    st.markdown(
-        "##### **Etapa 4: Configuração Pedagógica**"
-    )
+            else:
+                st.session_state.loading = True
 
-    quantidade_questoes = st.number_input(
-        "Quantidade de questões da prova:",
-        min_value=1,
-        max_value=50,
-        value=10,
-        step=1
-    )
+                prova_nova = {
+                    "area": area,
+                    "curso": curso,
+                    "materia": materia,
+                    "turma": turma,
+                    "unidade": unidade,
+                    "tipo_prova": tipo_prova,
+                    "modo": modo_criacao,
+                    "parametros": params_formulas,
+                    "quantidade_questoes": quantidade_questoes,
+                    "status": "Liberada",
+                    "data_criacao": datetime.now().strftime("%d/%m/%Y")
+                }
 
-    params_formulas = st.text_area(
-        "Insira conteúdos, fórmulas, funções ou competências obrigatórias da prova:"
-    )
+                st.session_state.provas_geradas[
+                    aluno_alvo
+                ] = prova_nova
 
-    st.markdown("---")
+                prova_individual = {
+                    aluno_alvo: prova_nova
+                }
 
-    st.markdown(
-        "##### **Etapa 5: Vinculação de Aluno Alvo**"
-    )
+                with st.spinner(
+                    "Salvando avaliação no banco de dados..."
+                ):
+                    resultado = salvar_dados_supabase(
+                        "provas",
+                        prova_individual
+                    )
 
-    lista_alunos = [
-        k for k, v in
-        st.session_state.usuarios_cadastrados.items()
-        if v["perfil"] == "Aluno"
-    ]
+                st.session_state.loading = False
 
-    aluno_alvo = st.selectbox(
-        "Liberar acesso exclusivo para o discente:",
-        lista_alunos
-        if lista_alunos
-        else ["Nenhum aluno cadastrado"]
-    )
+                if resultado:
+                    st.success(
+                        f"✅ Avaliação liberada com sucesso para o aluno: {aluno_alvo}"
+                    )
 
-    # ==================================================
-    # BOTÃO GERAR PROVA
-    # ==================================================
-    if st.button(
-        "🚀 Finalizar, Gerar e Liberar Prova",
-        disabled=st.session_state.loading
+                    st.session_state.provas_geradas = (
+                        ler_dados_supabase("provas")
+                    )
+
+                else:
+                    st.error(
+                        "❌ Erro ao salvar no Supabase."
+                    )
+
+    elif "📚 Banco de Questões" in opcao_menu:
+        st.subheader("📚 Banco de Questões Integrado")
+
+        st.info(
+            "Módulo em sincronia contínua. Permite resgatar itens avaliativos pré-configurados da matriz SENAI."
+        )
+
+    elif "📝 Avaliações Ativas" in opcao_menu:
+        st.subheader("📝 Monitoramento de Avaliações Ativas")
+
+        if len(st.session_state.provas_geradas) > 0:
+            df_ativas = pd.DataFrame([
+                {"Matrícula": k, **v}
+                for k, v in
+                st.session_state.provas_geradas.items()
+            ])
+
+            st.dataframe(
+                df_ativas,
+                use_container_width=True,
+                hide_index=True
+            )
+
+        else:
+            st.info(
+                "Nenhuma avaliação ativa encontrada no banco de dados."
+            )
+
+    elif "📤 Entregas" in opcao_menu:
+        st.subheader(
+            "📥 Arquivo de Entregas Realizadas pelos Alunos"
+        )
+
+        if len(st.session_state.entregas_sistema) > 0:
+            dados_completos = []
+
+            for aluno, info in (
+                st.session_state.entregas_sistema.items()
+            ):
+                dados_completos.append({
+                    "Aluno ID": aluno,
+                    "Disciplina": info.get(
+                        "materia",
+                        "Não informada"
+                    ),
+                    "Data do Envio": info.get(
+                        "data_entrega",
+                        "-"
+                    ),
+                    "Status": info.get(
+                        "status",
+                        "Enviado"
+                    ),
+                    "Nota Atribuída": info.get(
+                        "nota",
+                        0.0
+                    )
+                })
+
+            st.dataframe(
+                pd.DataFrame(dados_completos),
+                use_container_width=True,
+                hide_index=True
+            )
+
+        else:
+            st.info(
+                "Nenhuma entrega feita pelos alunos até o momento."
+            )
+
+    elif (
+        "📊 Relatórios" in opcao_menu
+        or
+        "⚙ Configurações" in opcao_menu
+    ):
+        st.info(
+            "Utilize as opções principais do menu para interagir com a base operacional."
+        )
+# ==============================================================================
+# 7. MÓDULO DISCENTE - ALUNO
+# ==============================================================================
+elif st.session_state.perfil_logado == "Aluno":
+
+    aluno_atual = st.session_state.usuario_logado
+
+    if "🏠 Início" in opcao_menu:
+        st.subheader("🚀 Central do Aluno")
+
+        st.write(
+            f"Bem-vindo, **{st.session_state.nome_exibicao}**! "
+            "Use o menu lateral para acessar suas avaliações."
+        )
+
+    elif "📝 Minhas Avaliações" in opcao_menu:
+
+        if aluno_atual in st.session_state.entregas_sistema:
+
+            st.success(
+                "✅ Avaliação realizada e entregue com sucesso para processamento docente!"
+            )
+
+            st.write("Dados da sua entrega:")
+
+            st.json(
+                st.session_state.entregas_sistema[
+                    aluno_atual
+                ]
+            )
+
+        elif aluno_atual not in st.session_state.provas_geradas:
+
+            st.warning(
+                "⚠️ Nenhuma avaliação disponível para o seu usuário neste momento. Aguarde liberação."
+            )
+
+        else:
+
+            prova = (
+                st.session_state.provas_geradas[
+                    aluno_atual
+                ]
+            )
+
+            st.info(
+                f"📋 **Avaliação Disponível:** "
+                f"{prova['materia']} | "
+                f"**Tipo:** {prova['tipo_prova']}"
+            )
+
+            st.markdown(
+                "#### 📥 1. Download da Avaliação"
+            )
+
+            # ======================================
+            # GERAÇÃO AUTOMÁTICA DE QUESTÕES
+            # ======================================
+
+            quantidade = prova.get(
+                "quantidade_questoes",
+                10
+            )
+
+            materia = prova.get(
+                "materia",
+                "DISCIPLINA"
+            )
+
+            parametros = prova.get(
+                "parametros",
+                ""
+            )
+
+            tipo_prova = prova.get(
+                "tipo_prova",
+                ""
+            )
+
+            conteudo_prova_txt = (
+                f"====================================\n"
+                f"SENAI-122 GUARULHOS\n"
+                f"SISTEMA UNIFICADO DE AVALIAÇÕES\n"
+                f"====================================\n\n"
+                f"DISCIPLINA: {materia}\n"
+                f"TURMA: {prova.get('turma', '-')}\n"
+                f"TIPO: {tipo_prova}\n"
+                f"ALUNO: {aluno_atual}\n\n"
+                f"INSTRUÇÕES:\n"
+                f"- Leia atentamente todas as questões.\n"
+                f"- Apenas uma alternativa é correta.\n"
+                f"- Boa prova.\n\n"
+                f"====================================\n"
+                f"QUESTÕES\n"
+                f"====================================\n\n"
+            )
+
+            if (
+                tipo_prova
+                ==
+                "Múltiplas Escolhas Estruturadas"
+            ):
+
+                for i in range(
+                    1,
+                    quantidade + 1
+                ):
+
+                    conteudo_prova_txt += (
+                        f"{i}) Sobre {materia}, "
+                        f"considere o conteúdo: "
+                        f"{parametros}\n\n"
+
+                        f"A) Alternativa Técnica A\n"
+                        f"B) Alternativa Técnica B\n"
+                        f"C) Alternativa Técnica C\n"
+                        f"D) Alternativa Técnica D\n\n"
+                    )
+
+            elif (
+                tipo_prova
+                ==
+                "Dissertativa Completa"
+            ):
+
+                for i in range(
+                    1,
+                    quantidade + 1
+                ):
+
+                    conteudo_prova_txt += (
+                        f"{i}) Desenvolva uma "
+                        f"resposta técnica sobre:\n"
+                        f"{parametros}\n\n"
+                        f"Resposta:\n"
+                        f"________________________________\n"
+                        f"________________________________\n"
+                        f"________________________________\n\n"
+                    )
+
+            elif (
+                tipo_prova
+                ==
+                "Resolução de Problema Prático"
+            ):
+
+                for i in range(
+                    1,
+                    quantidade + 1
+                ):
+
+                    conteudo_prova_txt += (
+                        f"{i}) Resolva um caso "
+                        f"prático envolvendo:\n"
+                        f"{parametros}\n\n"
+                        f"Solução:\n"
+                        f"________________________________\n"
+                        f"________________________________\n\n"
+                    )
+
+            else:
+
+                for i in range(
+                    1,
+                    quantidade + 1
+                ):
+
+                    conteudo_prova_txt += (
+                        f"{i}) Questão híbrida "
+                        f"sobre {materia}\n\n"
+                    )
+
+            st.download_button(
+                label="📥 Baixar Arquivo da Prova",
+                data=conteudo_prova_txt,
+                file_name=(
+                    f"Prova_"
+                    f"{materia}_"
+                    f"{aluno_atual}.txt"
+                )
+            )
+
+            st.markdown("---")
+
+            st.markdown(
+                "#### 📤 2. Entrega Oficial "
+                "da Solução "
+                "(Apenas 1 envio permitido)"
+            )
+
+            arquivo_submetido = (
+                st.file_uploader(
+                    "Arraste e solte "
+                    "o arquivo da sua "
+                    "prova resolvida aqui "
+                    "(Excel, PDF ou TXT):",
+                    type=[
+                        "txt",
+                        "xlsx",
+                        "pdf"
+                    ]
+                )
+            )
+
+            if arquivo_submetido is not None:
+
+                if st.button(
+                    "Finalizar e Enviar Avaliação Definitiva"
+                ):
+
+                    st.session_state.entregas_sistema[
+                        aluno_atual
+                    ] = {
+                        "materia":
+                            prova["materia"],
+                        "status":
+                            "Enviado",
+                        "nota":
+                            10.0,
+                        "data_entrega":
+                            datetime.now().strftime(
+                                "%d/%m/%Y %H:%M:%S"
+                            ),
+                        "arquivo_nome":
+                            arquivo_submetido.name
+                    }
+
+                    if salvar_dados_supabase(
+                        "entregas",
+                        st.session_state
+                        .entregas_sistema
+                    ):
+
+                        st.success(
+                            "✅ Prova gravada e salva com sucesso no banco de dados!"
+                        )
+
+                        st.rerun()
+
+    elif (
+        "📥 Downloads" in opcao_menu
+        or
+        "📤 Upload" in opcao_menu
+        or
+        "📈 Histórico" in opcao_menu
+        or
+        "💬 Feedbacks" in opcao_menu
     ):
 
-        if not materia:
-            st.warning(
-                "Por favor, informe a disciplina."
-            )
+        st.info(
+            "Acesse a aba "
+            "'Minhas Avaliações' "
+            "para interagir com "
+            "os arquivos de exames liberados."
+        )
+# ==============================================================================
+# 8. MÓDULO COMPLEMENTAR - COORDENADOR
+# ==============================================================================
+elif st.session_state.perfil_logado == "Coordenador":
 
-        elif aluno_alvo == "Nenhum aluno cadastrado":
-            st.warning(
-                "Nenhum aluno disponível."
+    if "🏠 Dashboard" in opcao_menu:
+
+        st.subheader(
+            "📊 Painel de Acompanhamento "
+            "Pedagógico (Coordenação)"
+        )
+
+        if len(
+            st.session_state.provas_geradas
+        ) > 0:
+
+            df_coord = pd.DataFrame([
+                {
+                    "Aluno ID": k,
+                    **v
+                }
+                for k, v in
+                st.session_state
+                .provas_geradas.items()
+            ])
+
+            st.dataframe(
+                df_coord,
+                use_container_width=True,
+                hide_index=True
             )
 
         else:
-            st.session_state.loading = True
+            st.info(
+                "Nenhum dado de avaliação "
+                "disponível para monitoramento."
+            )
 
-            # ==========================================
-            # GERAÇÃO AUTOMÁTICA DAS QUESTÕES
-            # ==========================================
-            questoes_geradas = []
+    else:
+        st.info(
+            "Navegue utilizando os menus "
+            "ativos da coordenação técnica."
+        )
 
-            if tipo_prova == "Múltiplas Escolhas Estruturadas":
 
-                for i in range(1, quantidade_questoes + 1):
+# ==============================================================================
+# 9. RODAPÉ / FINALIZAÇÃO
+# ==============================================================================
+st.markdown("---")
 
-                    questao = f"""
-QUESTÃO {i}
-
-Sobre {materia}, assinale a alternativa correta:
-
-A) Conceito incorreto relacionado ao tema
-B) Aplicação parcialmente correta
-C) Alternativa correta referente ao conteúdo
-D) Informação incompatível com a disciplina
-
-Resposta: _______
-"""
-
-                    questoes_geradas.append(questao)
-
-            elif tipo_prova == "Dissertativa Completa":
-
-                for i in range(1, quantidade_questoes + 1):
-
-                    questao = f"""
-QUESTÃO {i}
-
-Explique detalhadamente um conceito de {materia}
-relacionado ao seguinte conteúdo:
-
-{params_formulas}
-
-Resposta:
-_________________________________________________
-_________________________________________________
-_________________________________________________
-"""
-
-                    questoes_geradas.append(questao)
-
-            elif tipo_prova == "Resolução de Problema Prático":
-
-                for i in range(1, quantidade_questoes + 1):
-
-                    questao = f"""
-QUESTÃO {i}
-
-Resolva o problema técnico relacionado a:
-
-{params_formulas}
-
-Apresente o raciocínio e solução prática.
-"""
-
-                    questoes_geradas.append(questao)
-
-            elif tipo_prova == "Avaliação Híbrida":
-
-                for i in range(1, quantidade_questoes + 1):
-
-                    if i % 2 == 0:
-                        questao = f"""
-QUESTÃO {i}
-
-Marque a alternativa correta sobre {materia}:
-
-A) Alternativa A
-B) Alternativa B
-C) Alternativa C
-D) Alternativa D
-
-Resposta: _______
-"""
-                    else:
-                        questao = f"""
-QUESTÃO {i}
-
-Explique o seguinte tema:
-
-{params_formulas}
-
-Resposta:
-_____________________________________
-"""
-
-                    questoes_geradas.append(questao)
-
-            prova_texto = "\n".join(questoes_geradas)
-
-            prova_nova = {
-                "area": area,
-                "curso": curso,
-                "materia": materia,
-                "turma": turma,
-                "unidade": unidade,
-                "tipo_prova": tipo_prova,
-                "modo": modo_criacao,
-                "parametros": params_formulas,
-                "quantidade_questoes": quantidade_questoes,
-                "conteudo_prova": prova_texto,
-                "status": "Liberada",
-                "data_criacao": datetime.now().strftime(
-                    "%d/%m/%Y"
-                )
-            }
-
-            st.session_state.provas_geradas[
-                aluno_alvo
-            ] = prova_nova
-
-            prova_individual = {
-                aluno_alvo: prova_nova
-            }
-
-            with st.spinner(
-                "Salvando avaliação no banco de dados..."
-            ):
-                resultado = salvar_dados_supabase(
-                    "provas",
-                    prova_individual
-                )
-
-            st.session_state.loading = False
-
-            if resultado:
-                st.success(
-                    f"✅ Avaliação liberada com sucesso para o aluno: {aluno_alvo}"
-                )
-
-                st.session_state.provas_geradas = (
-                    ler_dados_supabase("provas")
-                )
-
-            else:
-                st.error(
-                    "❌ Erro ao salvar no Supabase."
-                )
-        elif "📚 Banco de Questões" in opcao_menu:
-            st.subheader("📚 Banco de Questões Integrado")
-            st.info("Módulo em sincronia contínua. Permite resgatar itens avaliativos pré-configurados da matriz SENAI.")
-            
-        elif "📝 Avaliações Ativas" in opcao_menu:
-            st.subheader("📝 Monitoramento de Avaliações Ativas")
-            if len(st.session_state.provas_geradas) > 0:
-                df_ativas = pd.DataFrame([{"Matrícula": k, **v} for k, v in st.session_state.provas_geradas.items()])
-                st.dataframe(df_ativas, use_container_width=True, hide_index=True)
-            else:
-                st.info("Nenhuma avaliação ativa encontrada no banco de dados.")
-
-        elif "📤 Entregas" in opcao_menu:
-            st.subheader("📥 Arquivo de Entregas Realizadas pelos Alunos")
-            if len(st.session_state.entregas_sistema) > 0:
-                dados_completos = []
-                for aluno, info in st.session_state.entregas_sistema.items():
-                    dados_completos.append({
-                        "Aluno ID": aluno,
-                        "Disciplina": info.get("materia", "Não informada"),
-                        "Data do Envio": info.get("data_entrega", "-"),
-                        "Status": info.get("status", "Enviado"),
-                        "Nota Atribuída": info.get("nota", 0.0)
-                    })
-                st.dataframe(pd.DataFrame(dados_completos), use_container_width=True, hide_index=True)
-            else:
-                st.info("Nenhuma entrega feita pelos alunos até o momento.")
-
-        elif "📊 Relatórios" in opcao_menu or "⚙ Configurações" in opcao_menu:
-            st.info("Utilize as opções principais do menu para interagir com a base operacional.")
-
-    # ==============================================================================
-    # 7. MÓDULO DISCENTE - ALUNO
-    # ==============================================================================
-    elif st.session_state.perfil_logado == "Aluno":
-        aluno_atual = st.session_state.usuario_logado
-        
-        if "🏠 Início" in opcao_menu:
-            st.subheader("🚀 Central do Aluno")
-            st.write(f"Bem-vindo, **{st.session_state.nome_exibicao}**! Use o menu lateral para acessar suas avaliações.")
-            
-        elif "📝 Minhas Avaliações" in opcao_menu:
-            if aluno_atual in st.session_state.entregas_sistema:
-                st.success("✅ Avaliação realizada e entregue com sucesso para processamento docente!")
-                st.write("Dados da sua entrega:")
-                st.json(st.session_state.entregas_sistema[aluno_atual])
-            elif aluno_atual not in st.session_state.provas_geradas:
-                st.warning("⚠️ Nenhuma avaliação disponível para o seu usuário neste momento. Aguarde liberação.")
-            else:
-                prova = st.session_state.provas_geradas[aluno_atual]
-                st.info(f"📋 **Avaliação Disponível:** {prova['materia']} | **Tipo:** {prova['tipo_prova']}")
-                
-                st.markdown("#### 📥 1. Downloads de Arquivos Base")
-conteudo_prova_txt = f"""
-===========================================
-SENAI-122 | SISTEMA SUATS
-AVALIAÇÃO TÉCNICA OFICIAL
-===========================================
-
-DISCIPLINA: {prova['materia']}
-CURSO: {prova['curso']}
-TURMA: {prova['turma']}
-TIPO DE PROVA: {prova['tipo_prova']}
-QUANTIDADE DE QUESTÕES: {prova.get('quantidade_questoes', 'Não definido')}
-
-INSTRUÇÕES:
-- Leia atentamente todas as questões.
-- Responda com clareza.
-- Salve o arquivo resolvido.
-- Faça upload no sistema SUATS.
-
-===========================================
-QUESTÕES DA AVALIAÇÃO
-===========================================
-
-{prova.get('conteudo_prova', 'Nenhuma questão gerada.')}
-
-===========================================
-FIM DA PROVA
-===========================================
-"""
-                st.download_button(
-                    label="📥 Baixar Arquivo de Orientações da Prova", 
-                    data=conteudo_prova_txt, 
-                    file_name=f"Prova_{prova['materia']}_{aluno_atual}.txt"
-                )
-                
-                st.markdown("---")
-                st.markdown("#### 📤 2. Entrega Oficial da Solução (Apenas 1 envio permitido)")
-                arquivo_submetido = st.file_uploader("Arraste e solte o arquivo da sua prova resolvida aqui (Excel, PDF ou TXT):", type=["txt", "xlsx", "pdf"])
-                
-                if arquivo_submetido is not None:
-                    if st.button("Finalizar e Enviar Avaliação Definitiva"):
-                        st.session_state.entregas_sistema[aluno_atual] = {
-                            "materia": prova['materia'], 
-                            "status": "Enviado", 
-                            "nota": 10.0,
-                            "data_entrega": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
-                            "arquivo_nome": arquivo_submetido.name
-                        }
-                        if salvar_dados_supabase("entregas", st.session_state.entregas_sistema):
-                            st.success("Prova gravada e salva com sucesso no banco de dados!")
-                            st.rerun()
-
-        elif "📥 Downloads" in opcao_menu or "📤 Upload" in opcao_menu or "📈 Histórico" in opcao_menu or "💬 Feedbacks" in opcao_menu:
-            st.info("Acesse a aba 'Minhas Avaliações' para interagir com os arquivos de exames liberados.")
-
-    # ==============================================================================
-    # 8. MÓDULO COMPLEMENTAR - COORDENADOR
-    # ==============================================================================
-    elif st.session_state.perfil_logado == "Coordenador":
-        if "🏠 Dashboard" in opcao_menu:
-            st.subheader("📊 Painel de Acompanhamento Pedagógico (Coordenação)")
-            if len(st.session_state.provas_geradas) > 0:
-                df_coord = pd.DataFrame([{"Aluno ID": k, **v} for k, v in st.session_state.provas_geradas.items()])
-                st.dataframe(df_coord, use_container_width=True, hide_index=True)
-            else:
-                st.info("Nenhum dado de avaliação disponível para monitoramento.")
-        else:
-            st.info("Navegue utilizando os menus ativos da coordenação técnica.")
-
-    st.markdown("---")
-    st.write("Backup estável - SUATS funcional com Supabase")
+st.write(
+    "Backup estável - "
+    "SUATS funcional com Supabase"
+)
