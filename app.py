@@ -431,15 +431,12 @@ else:
                 "Entregas Prontas para Correção",
                 len(st.session_state.entregas_sistema)
             )
-            "Entregas Prontas para Correção",
-            len(st.session_state.entregas_sistema)
-        )
 
-    elif "➕ Criar Avaliação" in opcao_menu:
+        elif "➕ Criar Avaliação" in opcao_menu:
 
-        st.subheader(
+            st.subheader(
             "⚙️ Wizard Profissional de Criação de Exames"
-        )
+            )
 
         st.markdown(
             "##### **Etapa 1: Informações de Identificação da Disciplina**"
