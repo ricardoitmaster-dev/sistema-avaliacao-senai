@@ -564,9 +564,19 @@ else:
                         "materia": materia,
                         "turma": turma,
                         "unidade": unidade,
+                    
                         "tipo_prova": tipo_prova,
-                        "modo": modo_criacao,
+                    
+                        # NOVO BLOCO (CONFIGURAÇÃO INTELIGENTE DO PROFESSOR)
+                        "tipo_questao": tipo_questao,
+                        "origem_questoes": origem_questoes,
+                        "nivel_dificuldade": nivel_dificuldade,
+                    
+                        "num_questoes": num_questoes,
+                        "num_alternativas": num_alternativas,
+                    
                         "parametros": params_formulas,
+                    
                         "status": "Liberada",
                         "data_criacao": datetime.now().strftime("%d/%m/%Y")
                     }
