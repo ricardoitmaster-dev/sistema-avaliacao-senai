@@ -814,5 +814,5 @@ else:
         else:
             st.info("Navegue utilizando os menus ativos da coordenação técnica.")
 
-st.markdown("---")
-st.write("Backup estável - SUATS funcional com Supabase")
+    st.markdown("---")
+    st.write("Backup estável - SUATS funcional com Supabase")
