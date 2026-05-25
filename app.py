@@ -272,6 +272,8 @@ if st.session_state.usuario_logado is None:
                 st.error("Login ou senha incorretos. Por favor verifique suas credenciais corporativas.")
 else:
     # DEFINIÇÃO DOS MENUS DE ACESSO CONFORME PERFIL DOCENTE / DISCENTE / GESTOR
+    opcao_menu = None
+
     with st.sidebar:
         st.markdown(f"<h3 style='text-align:center;'>🏆 SENAI-122</h3>", unsafe_allow_html=True)
         st.write(f"Conectado: **{st.session_state.nome_exibicao}**")
@@ -307,6 +309,10 @@ else:
     st.title(f"Sistema Unificado de Avaliações Técnicas (SUATS)")
     st.markdown(f"**Navegação Ativa:** {opcao_menu}")
     st.markdown("---")
+
+    # segurança contra perfil inválido
+    if opcao_menu is None:
+        opcao_menu = "🏠 Início"
 
     # ==============================================================================
     # 5. MÓDULO EXECUTIVO - GESTOR / DIRETOR
