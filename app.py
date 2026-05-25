@@ -676,35 +676,35 @@ else:
                             "❌ Erro ao salvar no Supabase."
                         )
         elif "📚 Banco de Questões" in opcao_menu:
-        st.subheader("📚 Banco de Questões Integrado")
-        st.info("Módulo em sincronia contínua. Permite resgatar itens avaliativos pré-configurados da matriz SENAI.")
+            st.subheader("📚 Banco de Questões Integrado")
+            st.info("Módulo em sincronia contínua. Permite resgatar itens avaliativos pré-configurados da matriz SENAI.")
 
     elif "📝 Avaliações Ativas" in opcao_menu:
-        st.subheader("📝 Monitoramento de Avaliações Ativas")
-        if len(st.session_state.provas_geradas) > 0:
-            df_ativas = pd.DataFrame([{"Matrícula": k, **v} for k, v in st.session_state.provas_geradas.items()])
-            st.dataframe(df_ativas, use_container_width=True, hide_index=True)
-        else:
-            st.info("Nenhuma avaliação ativa encontrada no banco de dados.")
+            st.subheader("📝 Monitoramento de Avaliações Ativas")
+            if len(st.session_state.provas_geradas) > 0:
+                df_ativas = pd.DataFrame([{"Matrícula": k, **v} for k, v in st.session_state.provas_geradas.items()])
+                st.dataframe(df_ativas, use_container_width=True, hide_index=True)
+            else:
+                st.info("Nenhuma avaliação ativa encontrada no banco de dados.")
 
     elif "📤 Entregas" in opcao_menu:
-        st.subheader("📥 Arquivo de Entregas Realizadas pelos Alunos")
-        if len(st.session_state.entregas_sistema) > 0:
-            dados_completos = []
-            for aluno, info in st.session_state.entregas_sistema.items():
-                dados_completos.append({
-                    "Aluno ID": aluno,
-                    "Disciplina": info.get("materia", "Não informada"),
-                    "Data do Envio": info.get("data_entrega", "-"),
-                    "Status": info.get("status", "Enviado"),
-                    "Nota Atribuída": info.get("nota", 0.0)
-                })
-            st.dataframe(pd.DataFrame(dados_completos), use_container_width=True, hide_index=True)
-        else:
-            st.info("Nenhuma entrega feita pelos alunos até o momento.")
+            st.subheader("📥 Arquivo de Entregas Realizadas pelos Alunos")
+            if len(st.session_state.entregas_sistema) > 0:
+                dados_completos = []
+                for aluno, info in st.session_state.entregas_sistema.items():
+                    dados_completos.append({
+                        "Aluno ID": aluno,
+                        "Disciplina": info.get("materia", "Não informada"),
+                        "Data do Envio": info.get("data_entrega", "-"),
+                        "Status": info.get("status", "Enviado"),
+                        "Nota Atribuída": info.get("nota", 0.0)
+                    })
+                st.dataframe(pd.DataFrame(dados_completos), use_container_width=True, hide_index=True)
+            else:
+                st.info("Nenhuma entrega feita pelos alunos até o momento.")
 
     elif "📊 Relatórios" in opcao_menu or "⚙ Configurações" in opcao_menu:
-        st.info("Utilize as opções principais do menu para interagir com a base operacional.")
+            st.info("Utilize as opções principais do menu para interagir com a base operacional.")
 
     # ==============================================================================
     # 7. MÓDULO DISCENTE - ALUNO
