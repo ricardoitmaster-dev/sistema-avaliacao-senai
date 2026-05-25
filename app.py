@@ -537,30 +537,30 @@ else:
             else ["Nenhum aluno cadastrado"]
         )
 st.markdown("---")
-st.markdown("##### 🤖 Geração de Questões com Inteligência Artificial")
-
-usar_ia = st.radio(
-    "Como deseja gerar as questões?",
-    [
-        "IA (Automático)",
-        "Manual (Professor criará depois)"
-    ]
-)
-
-tema_prova = None
-contexto_prova = None
-
-if usar_ia == "IA (Automático)":
-
-    tema_prova = st.text_input(
-        "Tema central da prova (obrigatório para IA):"
+    st.markdown("##### 🤖 Geração de Questões com Inteligência Artificial")
+    
+    usar_ia = st.radio(
+        "Como deseja gerar as questões?",
+        [
+            "IA (Automático)",
+            "Manual (Professor criará depois)"
+        ]
     )
-
-    contexto_prova = st.text_area(
-        "Contexto adicional (opcional - melhora a IA):"
-    )
-
-st.info("A prova será gerada automaticamente pela IA com base nos parâmetros definidos.")
+    
+    tema_prova = None
+    contexto_prova = None
+    
+    if usar_ia == "IA (Automático)":
+    
+        tema_prova = st.text_input(
+            "Tema central da prova (obrigatório para IA):"
+        )
+    
+        contexto_prova = st.text_area(
+            "Contexto adicional (opcional - melhora a IA):"
+        )
+    
+    st.info("A prova será gerada automaticamente pela IA com base nos parâmetros definidos.")
     # ==========================
     # BOTÃO GERAR PROVA
     # ==========================
@@ -568,20 +568,20 @@ st.info("A prova será gerada automaticamente pela IA com base nos parâmetros d
         "🚀 Finalizar, Gerar e Liberar Prova",
         disabled=st.session_state.loading
     ):
-
+    
         if not materia:
             st.warning(
                 "Por favor, informe a disciplina."
             )
-
+    
         elif aluno_alvo == "Nenhum aluno cadastrado":
             st.warning(
                 "Nenhum aluno disponível."
             )
-
+    
         else:
             st.session_state.loading = True
-
+    
             prova_nova = {
                 "area": area,
                 "curso": curso,
@@ -604,15 +604,15 @@ st.info("A prova será gerada automaticamente pela IA com base nos parâmetros d
                 "status": "Liberada",
                 "data_criacao": datetime.now().strftime("%d/%m/%Y")
             }
-
+    
             st.session_state.provas_geradas[
                 aluno_alvo
             ] = prova_nova
-
+    
             prova_individual = {
                 aluno_alvo: prova_nova
             }
-
+    
             with st.spinner(
                 "Salvando avaliação no banco de dados..."
             ):
@@ -620,35 +620,35 @@ st.info("A prova será gerada automaticamente pela IA com base nos parâmetros d
                     "provas",
                     prova_individual
                 )
-
+    
             st.session_state.loading = False
-
+    
             if resultado:
                 st.success(
                     f"✅ Avaliação liberada com sucesso para o aluno: {aluno_alvo}"
                 )
-
+    
                 st.session_state.provas_geradas = (
                     ler_dados_supabase("provas")
                 )
-
+    
             else:
                 st.error(
                     "❌ Erro ao salvar no Supabase."
                 )
-elif "📚 Banco de Questões" in opcao_menu:
+    elif "📚 Banco de Questões" in opcao_menu:
     st.subheader("📚 Banco de Questões Integrado")
     st.info("Módulo em sincronia contínua. Permite resgatar itens avaliativos pré-configurados da matriz SENAI.")
     
-elif "📝 Avaliações Ativas" in opcao_menu:
+    elif "📝 Avaliações Ativas" in opcao_menu:
     st.subheader("📝 Monitoramento de Avaliações Ativas")
     if len(st.session_state.provas_geradas) > 0:
         df_ativas = pd.DataFrame([{"Matrícula": k, **v} for k, v in st.session_state.provas_geradas.items()])
         st.dataframe(df_ativas, use_container_width=True, hide_index=True)
     else:
         st.info("Nenhuma avaliação ativa encontrada no banco de dados.")
-
-elif "📤 Entregas" in opcao_menu:
+    
+    elif "📤 Entregas" in opcao_menu:
     st.subheader("📥 Arquivo de Entregas Realizadas pelos Alunos")
     if len(st.session_state.entregas_sistema) > 0:
         dados_completos = []
@@ -665,7 +665,7 @@ elif "📤 Entregas" in opcao_menu:
         st.info("Nenhuma entrega feita pelos alunos até o momento.")
 
 elif "📊 Relatórios" in opcao_menu or "⚙ Configurações" in opcao_menu:
-    st.info("Utilize as opções principais do menu para interagir com a base operacional.")
+st.info("Utilize as opções principais do menu para interagir com a base operacional.")
 
     # ==============================================================================
     # 7. MÓDULO DISCENTE - ALUNO
