@@ -7,6 +7,30 @@ import streamlit as st
 import pandas as pd
 import requests
 
+def gerar_questoes_ia(tema, contexto, nivel, tipo, qtd, alternativas):
+    """
+    Simulação inicial (sem OpenAI ainda)
+    Depois trocamos por IA real.
+    """
+
+    questoes = []
+
+    for i in range(qtd):
+        questao = {
+            "enunciado": f"[{nivel}] Questão sobre {tema} - item {i+1}",
+            "alternativas": {},
+            "resposta_correta": "A"
+        }
+
+        letras = ["A", "B", "C", "D", "E"][:alternativas]
+
+        for l in letras:
+            questao["alternativas"][l] = f"Alternativa {l} sobre {tema}"
+
+        questoes.append(questao)
+
+    return questoes
+
 # ==============================================================================
 # 1. CONFIGURAÇÃO E CONEXÃO SEGURA AO SUPABASE (SQL NA NUVEM)
 # ==============================================================================
@@ -581,8 +605,17 @@ else:
     
         else:
             st.session_state.loading = True
-    
+            questoes_geradas = gerar_questoes_ia(
+                tema_prova,
+                contexto_prova,
+                nivel_dificuldade,
+                tipo_questao,
+                num_questoes,
+                num_alternativas
+            )
+
             prova_nova = {
+                "questoes": questoes_geradas,
                 "area": area,
                 "curso": curso,
                 "materia": materia,
