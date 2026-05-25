@@ -719,6 +719,7 @@ else:
                 st.warning("⚠️ Nenhuma avaliação disponível para o seu usuário neste momento. Aguarde liberação.")
             else:
                 prova = st.session_state.provas_geradas[aluno_atual]
+                respostas_aluno = st.session_state.get("respostas_aluno", [])
                 st.info(f"📋 Avaliação: {prova['materia']} | Tipo: {prova['tipo_prova']}")
                 
                 st.markdown("## 🧪 Prova Online")
