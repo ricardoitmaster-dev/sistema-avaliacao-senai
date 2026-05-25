@@ -560,112 +560,112 @@ if usar_ia == "IA (Automático)":
         "Contexto adicional (opcional - melhora a IA):"
     )
 
-    st.info("A prova será gerada automaticamente pela IA com base nos parâmetros definidos.")
-            # ==========================
-            # BOTÃO GERAR PROVA
-            # ==========================
-            if st.button(
-                "🚀 Finalizar, Gerar e Liberar Prova",
-                disabled=st.session_state.loading
-            ):
+st.info("A prova será gerada automaticamente pela IA com base nos parâmetros definidos.")
+    # ==========================
+    # BOTÃO GERAR PROVA
+    # ==========================
+    if st.button(
+        "🚀 Finalizar, Gerar e Liberar Prova",
+        disabled=st.session_state.loading
+    ):
 
-                if not materia:
-                    st.warning(
-                        "Por favor, informe a disciplina."
-                    )
+        if not materia:
+            st.warning(
+                "Por favor, informe a disciplina."
+            )
 
-                elif aluno_alvo == "Nenhum aluno cadastrado":
-                    st.warning(
-                        "Nenhum aluno disponível."
-                    )
+        elif aluno_alvo == "Nenhum aluno cadastrado":
+            st.warning(
+                "Nenhum aluno disponível."
+            )
 
-                else:
-                    st.session_state.loading = True
+        else:
+            st.session_state.loading = True
 
-                    prova_nova = {
-                        "area": area,
-                        "curso": curso,
-                        "materia": materia,
-                        "turma": turma,
-                        "unidade": unidade,
-                    
-                        "tipo_prova": tipo_prova,
-                    
-                        # NOVO BLOCO (CONFIGURAÇÃO INTELIGENTE DO PROFESSOR)
-                        "tipo_questao": tipo_questao,
-                        "origem_questoes": origem_questoes,
-                        "nivel_dificuldade": nivel_dificuldade,
-                    
-                        "num_questoes": num_questoes,
-                        "num_alternativas": num_alternativas,
-                    
-                        "parametros": params_formulas,
-                    
-                        "status": "Liberada",
-                        "data_criacao": datetime.now().strftime("%d/%m/%Y")
-                    }
-
-                    st.session_state.provas_geradas[
-                        aluno_alvo
-                    ] = prova_nova
-
-                    prova_individual = {
-                        aluno_alvo: prova_nova
-                    }
-
-                    with st.spinner(
-                        "Salvando avaliação no banco de dados..."
-                    ):
-                        resultado = salvar_dados_supabase(
-                            "provas",
-                            prova_individual
-                        )
-
-                    st.session_state.loading = False
-
-                    if resultado:
-                        st.success(
-                            f"✅ Avaliação liberada com sucesso para o aluno: {aluno_alvo}"
-                        )
-
-                        st.session_state.provas_geradas = (
-                            ler_dados_supabase("provas")
-                        )
-
-                    else:
-                        st.error(
-                            "❌ Erro ao salvar no Supabase."
-                        )
-        elif "📚 Banco de Questões" in opcao_menu:
-            st.subheader("📚 Banco de Questões Integrado")
-            st.info("Módulo em sincronia contínua. Permite resgatar itens avaliativos pré-configurados da matriz SENAI.")
+            prova_nova = {
+                "area": area,
+                "curso": curso,
+                "materia": materia,
+                "turma": turma,
+                "unidade": unidade,
             
-        elif "📝 Avaliações Ativas" in opcao_menu:
-            st.subheader("📝 Monitoramento de Avaliações Ativas")
-            if len(st.session_state.provas_geradas) > 0:
-                df_ativas = pd.DataFrame([{"Matrícula": k, **v} for k, v in st.session_state.provas_geradas.items()])
-                st.dataframe(df_ativas, use_container_width=True, hide_index=True)
-            else:
-                st.info("Nenhuma avaliação ativa encontrada no banco de dados.")
+                "tipo_prova": tipo_prova,
+            
+                # NOVO BLOCO (CONFIGURAÇÃO INTELIGENTE DO PROFESSOR)
+                "tipo_questao": tipo_questao,
+                "origem_questoes": origem_questoes,
+                "nivel_dificuldade": nivel_dificuldade,
+            
+                "num_questoes": num_questoes,
+                "num_alternativas": num_alternativas,
+            
+                "parametros": params_formulas,
+            
+                "status": "Liberada",
+                "data_criacao": datetime.now().strftime("%d/%m/%Y")
+            }
 
-        elif "📤 Entregas" in opcao_menu:
-            st.subheader("📥 Arquivo de Entregas Realizadas pelos Alunos")
-            if len(st.session_state.entregas_sistema) > 0:
-                dados_completos = []
-                for aluno, info in st.session_state.entregas_sistema.items():
-                    dados_completos.append({
-                        "Aluno ID": aluno,
-                        "Disciplina": info.get("materia", "Não informada"),
-                        "Data do Envio": info.get("data_entrega", "-"),
-                        "Status": info.get("status", "Enviado"),
-                        "Nota Atribuída": info.get("nota", 0.0)
-                    })
-                st.dataframe(pd.DataFrame(dados_completos), use_container_width=True, hide_index=True)
-            else:
-                st.info("Nenhuma entrega feita pelos alunos até o momento.")
+            st.session_state.provas_geradas[
+                aluno_alvo
+            ] = prova_nova
 
-        elif "📊 Relatórios" in opcao_menu or "⚙ Configurações" in opcao_menu:
-            st.info("Utilize as opções principais do menu para interagir com a base operacional.")
+            prova_individual = {
+                aluno_alvo: prova_nova
+            }
+
+            with st.spinner(
+                "Salvando avaliação no banco de dados..."
+            ):
+                resultado = salvar_dados_supabase(
+                    "provas",
+                    prova_individual
+                )
+
+            st.session_state.loading = False
+
+            if resultado:
+                st.success(
+                    f"✅ Avaliação liberada com sucesso para o aluno: {aluno_alvo}"
+                )
+
+                st.session_state.provas_geradas = (
+                    ler_dados_supabase("provas")
+                )
+
+            else:
+                st.error(
+                    "❌ Erro ao salvar no Supabase."
+                )
+elif "📚 Banco de Questões" in opcao_menu:
+    st.subheader("📚 Banco de Questões Integrado")
+    st.info("Módulo em sincronia contínua. Permite resgatar itens avaliativos pré-configurados da matriz SENAI.")
+    
+elif "📝 Avaliações Ativas" in opcao_menu:
+    st.subheader("📝 Monitoramento de Avaliações Ativas")
+    if len(st.session_state.provas_geradas) > 0:
+        df_ativas = pd.DataFrame([{"Matrícula": k, **v} for k, v in st.session_state.provas_geradas.items()])
+        st.dataframe(df_ativas, use_container_width=True, hide_index=True)
+    else:
+        st.info("Nenhuma avaliação ativa encontrada no banco de dados.")
+
+elif "📤 Entregas" in opcao_menu:
+    st.subheader("📥 Arquivo de Entregas Realizadas pelos Alunos")
+    if len(st.session_state.entregas_sistema) > 0:
+        dados_completos = []
+        for aluno, info in st.session_state.entregas_sistema.items():
+            dados_completos.append({
+                "Aluno ID": aluno,
+                "Disciplina": info.get("materia", "Não informada"),
+                "Data do Envio": info.get("data_entrega", "-"),
+                "Status": info.get("status", "Enviado"),
+                "Nota Atribuída": info.get("nota", 0.0)
+            })
+        st.dataframe(pd.DataFrame(dados_completos), use_container_width=True, hide_index=True)
+    else:
+        st.info("Nenhuma entrega feita pelos alunos até o momento.")
+
+elif "📊 Relatórios" in opcao_menu or "⚙ Configurações" in opcao_menu:
+    st.info("Utilize as opções principais do menu para interagir com a base operacional.")
 
     # ==============================================================================
     # 7. MÓDULO DISCENTE - ALUNO
