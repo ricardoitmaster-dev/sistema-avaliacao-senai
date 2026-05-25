@@ -531,36 +531,36 @@ else:
                 if v["perfil"] == "Aluno"
             ]
 
-        aluno_alvo = st.selectbox(
-            "Liberar acesso exclusivo para o discente:",
-            lista_alunos if lista_alunos
-            else ["Nenhum aluno cadastrado"]
-        )
-st.markdown("---")
-    st.markdown("##### 🤖 Geração de Questões com Inteligência Artificial")
-    
-    usar_ia = st.radio(
-        "Como deseja gerar as questões?",
-        [
-            "IA (Automático)",
-            "Manual (Professor criará depois)"
-        ]
-    )
-    
-    tema_prova = None
-    contexto_prova = None
-    
-    if usar_ia == "IA (Automático)":
-    
-        tema_prova = st.text_input(
-            "Tema central da prova (obrigatório para IA):"
-        )
-    
-        contexto_prova = st.text_area(
-            "Contexto adicional (opcional - melhora a IA):"
-        )
-    
-    st.info("A prova será gerada automaticamente pela IA com base nos parâmetros definidos.")
+            aluno_alvo = st.selectbox(
+                "Liberar acesso exclusivo para o discente:",
+                lista_alunos if lista_alunos
+                else ["Nenhum aluno cadastrado"]
+            )
+
+            st.markdown("---")
+            st.markdown("##### 🤖 Geração de Questões com Inteligência Artificial")
+            
+            usar_ia = st.radio(
+                "Como deseja gerar as questões?",
+                [
+                    "IA (Automático)",
+                    "Manual (Professor criará depois)"
+                ]
+            )
+            
+            tema_prova = None
+            contexto_prova = None
+            
+            if usar_ia == "IA (Automático)":
+                tema_prova = st.text_input(
+                    "Tema central da prova (obrigatório para IA):"
+                )
+                
+                contexto_prova = st.text_area(
+                    "Contexto adicional (opcional - melhora a IA):"
+                )
+            
+            st.info("A prova será gerada automaticamente pela IA com base nos parâmetros definidos.")
     # ==========================
     # BOTÃO GERAR PROVA
     # ==========================
