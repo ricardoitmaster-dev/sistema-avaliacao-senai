@@ -742,36 +742,63 @@ else:
                 st.markdown("---")
                 st.markdown("#### 📤 Finalização da Prova")
                 arquivo_submetido = st.file_uploader("Arraste e solte o arquivo da sua prova resolvida aqui (Excel, PDF ou TXT):", type=["txt", "xlsx", "pdf"])
-                
+
                 if arquivo_submetido is not None:
                     if st.button("Finalizar e Enviar Avaliação Definitiva"):
+
+                        # 1. Salva entrega do aluno
                         st.session_state.entregas_sistema[aluno_atual] = {
-                            "materia": prova['materia'], 
-                            "status": "Enviado", 
-                            "nota": 10.0,
+                            "materia": prova['materia'],
+                            "status": "Enviado",
                             "data_entrega": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
                             "arquivo_nome": arquivo_submetido.name
                         }
+
+                        # 2. CORREÇÃO AUTOMÁTICA
+                        st.markdown("### 🤖 Corrigindo prova...")
+
+                        prova = st.session_state.provas_geradas[aluno_atual]
+
+                        acertos = 0
+                        feedback = []
+
+                        for i, q in enumerate(prova["questoes"]):
+                            resposta_aluno = respostas_aluno[i]
+                            resposta_correta = q.get("resposta_correta")
+
+                            if resposta_aluno == resposta_correta:
+                                acertos += 1
+                                feedback.append(f"✔ Questão {i+1}: Correta")
+                            else:
+                                feedback.append(f"❌ Questão {i+1}: Errada")
+
+                        nota_final = round((acertos / len(prova["questoes"])) * 10, 2)
+
+                        # 3. salva nota
+                        st.session_state.entregas_sistema[aluno_atual]["nota"] = nota_final
+                        st.session_state.entregas_sistema[aluno_atual]["feedback"] = feedback
+
+                        # 4. salva no banco
                         if salvar_dados_supabase("entregas", st.session_state.entregas_sistema):
-                            st.success("Prova gravada e salva com sucesso no banco de dados!")
+                            st.success(f"Nota final: {nota_final}")
                             st.rerun()
 
-        elif "📥 Downloads" in opcao_menu or "📤 Upload" in opcao_menu or "📈 Histórico" in opcao_menu or "💬 Feedbacks" in opcao_menu:
-            st.info("Acesse a aba 'Minhas Avaliações' para interagir com os arquivos de exames liberados.")
+if "📥 Downloads" in opcao_menu or "📤 Upload" in opcao_menu or "📈 Histórico" in opcao_menu or "💬 Feedbacks" in opcao_menu:
+    st.info("Acesse a aba 'Minhas Avaliações' para interagir com os arquivos de exames liberados.")
 
-    # ==============================================================================
+    # ======================================================================
     # 8. MÓDULO COMPLEMENTAR - COORDENADOR
-    # ==============================================================================
-    elif st.session_state.perfil_logado == "Coordenador":
-        if "🏠 Dashboard" in opcao_menu:
-            st.subheader("📊 Painel de Acompanhamento Pedagógico (Coordenação)")
-            if len(st.session_state.provas_geradas) > 0:
-                df_coord = pd.DataFrame([{"Aluno ID": k, **v} for k, v in st.session_state.provas_geradas.items()])
-                st.dataframe(df_coord, use_container_width=True, hide_index=True)
-            else:
-                st.info("Nenhum dado de avaliação disponível para monitoramento.")
+    # ======================================================================
+elif st.session_state.perfil_logado == "Coordenador":
+    if "🏠 Dashboard" in opcao_menu:
+        st.subheader("📊 Painel de Acompanhamento Pedagógico (Coordenação)")
+        if len(st.session_state.provas_geradas) > 0:
+            df_coord = pd.DataFrame([{"Aluno ID": k, **v} for k, v in st.session_state.provas_geradas.items()])
+            st.dataframe(df_coord, use_container_width=True, hide_index=True)
         else:
-            st.info("Navegue utilizando os menus ativos da coordenação técnica.")
+            st.info("Nenhum dado de avaliação disponível para monitoramento.")
+    else:
+        st.info("Navegue utilizando os menus ativos da coordenação técnica.")
 
-    st.markdown("---")
-    st.write("Backup estável - SUATS funcional com Supabase")
+st.markdown("---")
+st.write("Backup estável - SUATS funcional com Supabase")
