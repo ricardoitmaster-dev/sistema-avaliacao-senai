@@ -9,29 +9,104 @@ import requests
 import google.generativeai as genai
 
 
-def gerar_questoes_ia(tema, contexto, nivel, tipo, qtd, alternativas):
+def gerar_questoes_ia(
+    tema,
+    contexto,
+    nivel,
+    tipo,
+    qtd,
+    alternativas
+):
     """
-    Simulação inicial (sem OpenAI ainda)
-    Depois trocamos por IA real.
+    Geração real de questões com Gemini
     """
 
-    questoes = []
+    try:
 
-    for i in range(qtd):
-        questao = {
-            "enunciado": f"[{nivel}] Questão sobre {tema} - item {i+1}",
-            "alternativas": {},
-            "resposta_correta": "A",
-        }
+        prompt = f"""
+Você é um professor especialista SENAI.
 
-        letras = ["A", "B", "C", "D", "E"][:alternativas]
+Crie {qtd} questões sobre:
 
-        for l in letras:
-            questao["alternativas"][l] = f"Alternativa {l} sobre {tema}"
+Tema: {tema}
 
-        questoes.append(questao)
+Contexto adicional:
+{contexto}
 
-    return questoes
+Nível:
+{nivel}
+
+Tipo:
+{tipo}
+
+Número de alternativas:
+{alternativas}
+
+REGRAS IMPORTANTES:
+
+1. Gere questões REAIS e profissionais.
+2. Não invente textos genéricos.
+3. Se o tema for Excel Avançado:
+   - gere estudo de caso
+   - fórmulas reais
+   - cenários empresariais
+   - PROCV, PROCX, SOMASES, SE, TABELA DINÂMICA, VBA etc.
+
+4. Retorne APENAS JSON válido.
+5. Sem markdown.
+6. Sem explicações.
+
+Formato obrigatório:
+
+[
+    {{
+        "enunciado": "texto",
+        "alternativas": {{
+            "A": "texto",
+            "B": "texto",
+            "C": "texto",
+            "D": "texto"
+        }},
+        "resposta_correta": "A"
+    }}
+]
+"""
+
+        resposta = modelo_ia.generate_content(
+            prompt
+        )
+
+        texto = resposta.text.strip()
+
+        # limpeza caso venha markdown
+        texto = texto.replace(
+            "```json",
+            ""
+        ).replace(
+            "```",
+            ""
+        ).strip()
+
+        questoes = json.loads(texto)
+
+        return questoes
+
+    except Exception as e:
+
+        st.error(
+            f"Erro ao gerar questões com IA: {e}"
+        )
+
+        return [
+            {
+                "enunciado":
+                "Erro ao gerar questões.",
+                "alternativas": {
+                    "A": "Tente novamente"
+                },
+                "resposta_correta": "A"
+            }
+        ]
 
 
 # ==============================================================================
