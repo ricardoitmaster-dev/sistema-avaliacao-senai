@@ -139,7 +139,7 @@ try:
         )
 
         modelo_ia = genai.GenerativeModel(
-            "gemini-1.5-flash"
+            "gemini-2.0-flash"
         )
 
     else:
