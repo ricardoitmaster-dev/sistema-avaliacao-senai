@@ -48,6 +48,18 @@ HEADERS = {
     "Prefer": "return=representation",
 }
 
+# ==============================================================================
+# 2. CONFIGURAÇÃO GEMINI IA
+# ==============================================================================
+
+genai.configure(
+    api_key=st.secrets["GEMINI_API_KEY"]
+)
+
+modelo_ia = genai.GenerativeModel(
+    "gemini-1.5-flash"
+)
+
 # Massa de dados padrão master para consistência do sistema (Backup Local Seguro)
 USUARIOS_PADRAO = {
     "sn1084433": {
