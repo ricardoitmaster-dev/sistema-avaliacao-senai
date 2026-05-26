@@ -127,13 +127,32 @@ HEADERS = {
 # 2. CONFIGURAÇÃO GEMINI IA
 # ==============================================================================
 
-genai.configure(
-    api_key=st.secrets["GEMINI_API_KEY"]
-)
+try:
+    GEMINI_API_KEY = st.secrets.get(
+        "GEMINI_API_KEY"
+    )
 
-modelo_ia = genai.GenerativeModel(
-    "gemini-1.5-flash"
-)
+    if GEMINI_API_KEY:
+
+        genai.configure(
+            api_key=GEMINI_API_KEY
+        )
+
+        modelo_ia = genai.GenerativeModel(
+            "gemini-1.5-flash"
+        )
+
+    else:
+        modelo_ia = None
+        st.warning(
+            "Chave Gemini não encontrada."
+        )
+
+except Exception as e:
+    modelo_ia = None
+    st.warning(
+        f"Erro ao carregar Gemini: {e}"
+    )
 
 # Massa de dados padrão master para consistência do sistema (Backup Local Seguro)
 USUARIOS_PADRAO = {
