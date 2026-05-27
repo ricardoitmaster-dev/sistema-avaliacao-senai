@@ -295,20 +295,31 @@ HEADERS = {
 # 2. CONFIGURAÇÃO GEMINI IA
 # ==============================================================================
 
+cliente_ia = None
+
 try:
     GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY")
 
     if GEMINI_API_KEY:
 
-        genai.configure(api_key=GEMINI_API_KEY)
-
-        modelo_ia = genai.GenerativeModel(
-            "gemini-2.5-flash"
+        cliente_ia = genai.Client(
+            api_key=GEMINI_API_KEY
         )
 
+        st.success("✅ Gemini conectado.")
+
     else:
-        modelo_ia = None
-        st.warning("Chave Gemini não encontrada.")
+        st.warning(
+            "⚠️ GEMINI_API_KEY não encontrada no secrets.toml"
+        )
+
+except Exception as e:
+
+    cliente_ia = None
+
+    st.error(
+        f"Erro ao inicializar Gemini: {e}"
+    )
 
 except Exception as e:
     modelo_ia = None
