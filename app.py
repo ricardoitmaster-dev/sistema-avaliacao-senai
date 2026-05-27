@@ -65,10 +65,7 @@ Formato obrigatório:
 ]
 """
 
-        resposta = cliente_ia.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=prompt
-        )
+        resposta = modelo_ia.generate_content(prompt)
 
         texto = resposta.text.strip()
 
