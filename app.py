@@ -9,50 +9,64 @@ import requests
 import google.generativeai as genai
 
 
-def gerar_questoes_ia(tema, contexto, nivel, tipo, qtd, alternativas):
+def gerar_questoes_ia(
+    tema,
+    contexto,
+    nivel,
+    tipo,
+    qtd,
+    alternativas
+):
     """
-    Geração real de questões com Gemini
+    Geração inteligente de avaliações SENAI
+    com Gemini IA.
     """
 
     try:
 
-        prompt = f"""
-Você é um professor especialista SENAI.
+        # ======================================================
+        # PROMPT DINÂMICO POR TIPO
+        # ======================================================
 
-Crie {qtd} questões sobre:
+        if tipo == "Múltipla Escolha":
 
-Tema: {tema}
+            prompt = f"""
+Você é um professor especialista do SENAI.
 
-Contexto adicional:
+Crie {qtd} questões PROFISSIONAIS
+de múltipla escolha.
+
+TEMA:
+{tema}
+
+CONTEXTO:
 {contexto}
 
-Nível:
+NÍVEL:
 {nivel}
 
-Tipo:
-{tipo}
-
-Número de alternativas:
+Quantidade de alternativas:
 {alternativas}
 
-REGRAS IMPORTANTES:
+REGRAS:
 
-1. Gere questões REAIS e profissionais.
-2. Não invente textos genéricos.
-3. Se o tema for Excel Avançado:
-   - gere estudo de caso
-   - fórmulas reais
-   - cenários empresariais
-   - PROCV, PROCX, SOMASES, SE, TABELA DINÂMICA, VBA etc.
+1. Questões reais e técnicas.
+2. Nada genérico.
+3. Se for Excel Avançado:
+- usar PROCV
+- PROCX
+- SOMASES
+- Tabela Dinâmica
+- VBA
+- cenários empresariais
 
-4. Retorne APENAS JSON válido.
-5. Sem markdown.
-6. Sem explicações.
+RETORNE APENAS JSON.
 
 Formato obrigatório:
 
 [
     {{
+        "tipo": "multipla_escolha",
         "enunciado": "texto",
         "alternativas": {{
             "A": "texto",
@@ -65,12 +79,184 @@ Formato obrigatório:
 ]
 """
 
-        resposta = modelo_ia.generate_content(prompt)
+        elif tipo == "Dissertativa":
 
-        texto = resposta.text.strip()
+            prompt = f"""
+Você é um professor especialista SENAI.
 
-        # limpeza caso venha markdown
-        texto = texto.replace("```json", "").replace("```", "").strip()
+Crie {qtd} questões DISSERTATIVAS.
+
+Tema:
+{tema}
+
+Contexto:
+{contexto}
+
+Nível:
+{nivel}
+
+REGRAS:
+
+1. Questões abertas.
+2. Respostas argumentativas.
+3. Nível técnico SENAI.
+4. Nada genérico.
+
+RETORNE APENAS JSON.
+
+Formato:
+
+[
+    {{
+        "tipo": "dissertativa",
+        "enunciado": "texto da questão",
+        "criterios_avaliacao": [
+            "critério 1",
+            "critério 2"
+        ]
+    }}
+]
+"""
+
+        elif tipo == "Estudo de Caso":
+
+            prompt = f"""
+Você é um especialista SENAI.
+
+Crie UM estudo de caso aplicado REAL.
+
+Tema:
+{tema}
+
+Contexto:
+{contexto}
+
+Nível:
+{nivel}
+
+REGRAS IMPORTANTES:
+
+1. Criar cenário empresarial real.
+2. Problema técnico real.
+3. O aluno deve EXECUTAR algo.
+4. Pode envolver:
+- Excel
+- VBA
+- SQL
+- Redes
+- Programação
+- Dados
+
+5. Incluir instruções claras.
+6. Criar entregáveis.
+7. Estilo SENAI profissional.
+
+RETORNE APENAS JSON.
+
+Formato:
+
+[
+    {{
+        "tipo": "estudo_caso",
+        "empresa": "Nome fictício",
+        "cenario": "Situação do problema",
+        "desafio": "O que deve ser feito",
+        "instrucoes": [
+            "Passo 1",
+            "Passo 2"
+        ],
+        "entregaveis": [
+            "Arquivo Excel",
+            "PDF"
+        ],
+        "criterios_avaliacao": [
+            "Precisão",
+            "Lógica"
+        ]
+    }}
+]
+"""
+
+        elif tipo == "Híbrida":
+
+            prompt = f"""
+Você é um professor especialista SENAI.
+
+Crie uma avaliação híbrida.
+
+Tema:
+{tema}
+
+Contexto:
+{contexto}
+
+Nível:
+{nivel}
+
+A prova deve conter:
+
+- questões objetivas
+- questões dissertativas
+- estudo de caso aplicado
+
+RETORNE APENAS JSON.
+
+Formato:
+
+[
+    {{
+        "tipo": "multipla_escolha",
+        "enunciado": "texto",
+        "alternativas": {{
+            "A": "texto",
+            "B": "texto",
+            "C": "texto",
+            "D": "texto"
+        }},
+        "resposta_correta": "A"
+    }},
+    {{
+        "tipo": "dissertativa",
+        "enunciado": "texto",
+        "criterios_avaliacao": [
+            "critério 1"
+        ]
+    }},
+    {{
+        "tipo": "estudo_caso",
+        "empresa": "empresa fictícia",
+        "cenario": "problema",
+        "desafio": "atividade"
+    }}
+]
+"""
+
+        else:
+            raise Exception(
+                f"Tipo de prova inválido: {tipo}"
+            )
+
+        # ======================================================
+        # GEMINI
+        # ======================================================
+
+        resposta = cliente_ia.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
+        texto = (
+            resposta.text.strip()
+            if hasattr(resposta, "text")
+            else ""
+        )
+
+        # limpeza markdown
+        texto = (
+            texto
+            .replace("```json", "")
+            .replace("```", "")
+            .strip()
+        )
 
         questoes = json.loads(texto)
 
@@ -78,16 +264,18 @@ Formato obrigatório:
 
     except Exception as e:
 
-        st.error(f"Erro ao gerar questões com IA: {e}")
+        st.error(
+            f"Erro ao gerar questões com IA: {e}"
+        )
 
         return [
             {
-                "enunciado": "Erro ao gerar questões.",
-                "alternativas": {"A": "Tente novamente"},
-                "resposta_correta": "A",
+                "tipo": "erro",
+                "enunciado": (
+                    "Erro ao gerar avaliação."
+                )
             }
         ]
-
 
 # ==============================================================================
 # 1. CONFIGURAÇÃO E CONEXÃO SEGURA AO SUPABASE (SQL NA NUVEM)
