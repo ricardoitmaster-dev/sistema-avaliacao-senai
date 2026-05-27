@@ -6,7 +6,7 @@ from datetime import datetime
 import streamlit as st
 import pandas as pd
 import requests
-import google.generativeai as genai
+from google import genai
 
 
 def gerar_questoes_ia(tema, contexto, nivel, tipo, qtd, alternativas):
@@ -65,7 +65,10 @@ Formato obrigatório:
 ]
 """
 
-        resposta = modelo_ia.generate_content(prompt)
+        resposta = cliente_ia.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=prompt
+        )
 
         texto = resposta.text.strip()
 
@@ -112,16 +115,16 @@ try:
 
     if GEMINI_API_KEY:
 
-        genai.configure(api_key=GEMINI_API_KEY)
-
-        modelo_ia = genai.GenerativeModel("models/gemini-1.5-flash")
+        cliente_ia = genai.Client(
+            api_key=GEMINI_API_KEY
+        )
 
     else:
-        modelo_ia = None
+        cliente_ia = None
         st.warning("Chave Gemini não encontrada.")
 
 except Exception as e:
-    modelo_ia = None
+    cliente_ia = None
     st.warning(f"Erro ao carregar Gemini: {e}")
 
 # Massa de dados padrão master para consistência do sistema (Backup Local Seguro)
