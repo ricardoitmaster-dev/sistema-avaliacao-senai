@@ -9,14 +9,7 @@ import requests
 import google.generativeai as genai
 
 
-def gerar_questoes_ia(
-    tema,
-    contexto,
-    nivel,
-    tipo,
-    qtd,
-    alternativas
-):
+def gerar_questoes_ia(tema, contexto, nivel, tipo, qtd, alternativas):
     """
     Geração real de questões com Gemini
     """
@@ -72,20 +65,12 @@ Formato obrigatório:
 ]
 """
 
-        resposta = modelo_ia.generate_content(
-            prompt
-        )
+        resposta = modelo_ia.generate_content(prompt)
 
         texto = resposta.text.strip()
 
         # limpeza caso venha markdown
-        texto = texto.replace(
-            "```json",
-            ""
-        ).replace(
-            "```",
-            ""
-        ).strip()
+        texto = texto.replace("```json", "").replace("```", "").strip()
 
         questoes = json.loads(texto)
 
@@ -93,18 +78,13 @@ Formato obrigatório:
 
     except Exception as e:
 
-        st.error(
-            f"Erro ao gerar questões com IA: {e}"
-        )
+        st.error(f"Erro ao gerar questões com IA: {e}")
 
         return [
             {
-                "enunciado":
-                "Erro ao gerar questões.",
-                "alternativas": {
-                    "A": "Tente novamente"
-                },
-                "resposta_correta": "A"
+                "enunciado": "Erro ao gerar questões.",
+                "alternativas": {"A": "Tente novamente"},
+                "resposta_correta": "A",
             }
         ]
 
@@ -128,31 +108,21 @@ HEADERS = {
 # ==============================================================================
 
 try:
-    GEMINI_API_KEY = st.secrets.get(
-        "GEMINI_API_KEY"
-    )
+    GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY")
 
     if GEMINI_API_KEY:
 
-        genai.configure(
-            api_key=GEMINI_API_KEY
-        )
+        genai.configure(api_key=GEMINI_API_KEY)
 
-        modelo_ia = genai.GenerativeModel(
-            "gemini-1.5-pro"
-        )
+        modelo_ia = genai.GenerativeModel("gemini-1.5-flash-latest")
 
     else:
         modelo_ia = None
-        st.warning(
-            "Chave Gemini não encontrada."
-        )
+        st.warning("Chave Gemini não encontrada.")
 
 except Exception as e:
     modelo_ia = None
-    st.warning(
-        f"Erro ao carregar Gemini: {e}"
-    )
+    st.warning(f"Erro ao carregar Gemini: {e}")
 
 # Massa de dados padrão master para consistência do sistema (Backup Local Seguro)
 USUARIOS_PADRAO = {
@@ -971,7 +941,7 @@ else:
                         f"Escolha sua resposta - Q{i+1}",
                         alternativas,
                         index=None,
-                        key=f"q_{i}"
+                        key=f"q_{i}",
                     )
 
                     respostas_aluno.append(resposta)
