@@ -115,7 +115,7 @@ try:
         genai.configure(api_key=GEMINI_API_KEY)
 
         modelo_ia = genai.GenerativeModel(
-            "gemini-2.0-flash"
+            "gemini-2.5-flash"
         )
 
     else:
