@@ -642,6 +642,31 @@ Parte 2:
 )
 
 # ==============================================================================
+# 3.5. INICIALIZAÇÃO SEGURA DO SESSION STATE
+# ==============================================================================
+
+if "usuario_logado" not in st.session_state:
+    st.session_state.usuario_logado = None
+
+if "perfil_logado" not in st.session_state:
+    st.session_state.perfil_logado = None
+
+if "nome_exibicao" not in st.session_state:
+    st.session_state.nome_exibicao = None
+
+if "usuarios_cadastrados" not in st.session_state:
+    st.session_state.usuarios_cadastrados = {}
+
+if "provas_geradas" not in st.session_state:
+    st.session_state.provas_geradas = {}
+
+if "entregas_sistema" not in st.session_state:
+    st.session_state.entregas_sistema = {}
+
+if "loading" not in st.session_state:
+    st.session_state.loading = False
+
+# ==============================================================================
 # 4. PORTAL DE LOGIN / CONTROLE DE ACESSO
 # ==============================================================================
 if st.session_state.usuario_logado is None:
