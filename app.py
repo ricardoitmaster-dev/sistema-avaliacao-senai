@@ -1,5 +1,5 @@
 # ==============================================================================
-# 1. IMPORTS + IA (GEMINI)
+# 1. IMPORTS + IA (GEMINI)  
 # ==============================================================================
 
 import os
@@ -990,432 +990,432 @@ else:
             )
             st.write(f"Endpoint Conexão: {SUPABASE_URL}")
 
-        # ==============================================================================
-        # 6. MÓDULO PEDAGÓGICO - PROFESSOR
-        # ==============================================================================
-        elif st.session_state.perfil_logado == "Professor":
-            if "🏠 Dashboard" in opcao_menu:
-                st.subheader("📊 Painel de Controle Geral do Docente")
-                st.write(
-                    "Acompanhe o status das avaliações e entregas feitas pelos alunos na nuvem."
-                )
-                c1, c2 = st.columns(2)
-                c1.metric("Provas Criadas por Você", len(st.session_state.provas_geradas))
-                c2.metric(
-                    "Entregas Prontas para Correção", len(st.session_state.entregas_sistema)
-                )
+    # ==============================================================================
+    # 6. MÓDULO PEDAGÓGICO - PROFESSOR
+    # ==============================================================================
+    elif st.session_state.perfil_logado == "Professor":
+        if "🏠 Dashboard" in opcao_menu:
+            st.subheader("📊 Painel de Controle Geral do Docente")
+            st.write(
+                "Acompanhe o status das avaliações e entregas feitas pelos alunos na nuvem."
+            )
+            c1, c2 = st.columns(2)
+            c1.metric("Provas Criadas por Você", len(st.session_state.provas_geradas))
+            c2.metric(
+                "Entregas Prontas para Correção", len(st.session_state.entregas_sistema)
+            )
 
-            elif "➕ Criar Avaliação" in opcao_menu:
+        elif "➕ Criar Avaliação" in opcao_menu:
 
-                st.subheader("⚙️ Wizard Profissional de Criação de Exames")
+            st.subheader("⚙️ Wizard Profissional de Criação de Exames")
 
-                # ==========================================================
-                # ETAPA 1 — IDENTIFICAÇÃO
-                # ==========================================================
-                st.markdown("##### **Etapa 1: Informações de Identificação da Disciplina**")
+            # ==========================================================
+            # ETAPA 1 — IDENTIFICAÇÃO
+            # ==========================================================
+            st.markdown("##### **Etapa 1: Informações de Identificação da Disciplina**")
 
-                col1, col2 = st.columns(2)
+            col1, col2 = st.columns(2)
 
-                with col1:
-                    area = (
-                        st.text_input(
-                            "Área Técnica:",
-                            "METALMECÂNICA / TI"
-                        ).strip().upper()
-                    )
-
-                    curso = (
-                        st.text_input(
-                            "Nome do Curso:",
-                            "TÉCNICO EM INFORMÁTICA"
-                        ).strip().upper()
-                    )
-
-                    materia = (
-                        st.text_input(
-                            "Componente Curricular (Disciplina):"
-                        ).strip().upper()
-                    )
-
-                with col2:
-                    turma = (
-                        st.text_input(
-                            "Identificador da Turma (Ex: 1TIND):"
-                        ).strip().upper()
-                    )
-
-                    unidade = (
-                        st.text_input(
-                            "Unidade Escolar SENAI:",
-                            "SENAI-122 GUARULHOS"
-                        ).strip().upper()
-                    )
-
-                st.markdown("---")
-
-                # ==========================================================
-                # ETAPA 2 — MODELO DE AVALIAÇÃO
-                # ==========================================================
-                st.markdown("##### **Etapa 2: Modelo Pedagógico da Avaliação**")
-
-                tipo_prova = st.selectbox(
-                    "Selecione o modelo:",
-                    [
-                        "Múltiplas Escolhas Estruturadas",
-                        "Dissertativa Completa",
-                        "Estudo de Caso Aplicado",
-                        "Avaliação Híbrida",
-                    ],
+            with col1:
+                area = (
+                    st.text_input(
+                        "Área Técnica:",
+                        "METALMECÂNICA / TI"
+                    ).strip().upper()
                 )
 
-                st.markdown("---")
-
-                # ==========================================================
-                # ETAPA 3 — CONFIGURAÇÕES GERAIS
-                # ==========================================================
-                st.markdown("##### **Etapa 3: Configuração Geral**")
-
-                origem_questoes = st.selectbox(
-                    "Origem das questões:",
-                    [
-                        "Sistema Automático",
-                        "Banco de Questões",
-                        "IA (Gemini Contextualizada)",
-                    ],
+                curso = (
+                    st.text_input(
+                        "Nome do Curso:",
+                        "TÉCNICO EM INFORMÁTICA"
+                    ).strip().upper()
                 )
 
-                nivel_dificuldade = st.selectbox(
-                    "Nível de dificuldade:",
-                    ["Básico", "Intermediário", "Avançado"]
+                materia = (
+                    st.text_input(
+                        "Componente Curricular (Disciplina):"
+                    ).strip().upper()
                 )
 
-                usar_ia = st.radio(
-                    "Modo de criação:",
-                    [
-                        "IA (Automático)",
-                        "Manual (Professor criará depois)"
-                    ]
+            with col2:
+                turma = (
+                    st.text_input(
+                        "Identificador da Turma (Ex: 1TIND):"
+                    ).strip().upper()
                 )
 
-                st.markdown("---")
+                unidade = (
+                    st.text_input(
+                        "Unidade Escolar SENAI:",
+                        "SENAI-122 GUARULHOS"
+                    ).strip().upper()
+                )
 
-                # ==========================================================
-                # ETAPA 4 — CONFIGURAÇÃO DINÂMICA
-                # ==========================================================
-                st.markdown("##### **Etapa 4: Configuração Técnica da Avaliação**")
+            st.markdown("---")
 
-                tipo_questao = ""
-                num_alternativas = 0
+            # ==========================================================
+            # ETAPA 2 — MODELO DE AVALIAÇÃO
+            # ==========================================================
+            st.markdown("##### **Etapa 2: Modelo Pedagógico da Avaliação**")
 
-                # ----------------------------------------------------------
-                # MÚLTIPLA ESCOLHA
-                # ----------------------------------------------------------
-                if tipo_prova == "Múltiplas Escolhas Estruturadas":
+            tipo_prova = st.selectbox(
+                "Selecione o modelo:",
+                [
+                    "Múltiplas Escolhas Estruturadas",
+                    "Dissertativa Completa",
+                    "Estudo de Caso Aplicado",
+                    "Avaliação Híbrida",
+                ],
+            )
 
-                    tipo_questao = "Múltipla Escolha"
+            st.markdown("---")
 
-                    num_questoes = st.number_input(
-                        "Número de questões:",
-                        min_value=1,
-                        max_value=30,
-                        value=10
-                    )
+            # ==========================================================
+            # ETAPA 3 — CONFIGURAÇÕES GERAIS
+            # ==========================================================
+            st.markdown("##### **Etapa 3: Configuração Geral**")
 
-                    num_alternativas = st.selectbox(
-                        "Número de alternativas:",
-                        [2, 3, 4, 5],
-                        index=2
-                    )
+            origem_questoes = st.selectbox(
+                "Origem das questões:",
+                [
+                    "Sistema Automático",
+                    "Banco de Questões",
+                    "IA (Gemini Contextualizada)",
+                ],
+            )
 
-                    params_formulas = st.text_area(
-                        "Funções/Conteúdos obrigatórios:"
-                    )
+            nivel_dificuldade = st.selectbox(
+                "Nível de dificuldade:",
+                ["Básico", "Intermediário", "Avançado"]
+            )
 
-                    st.info(
-                        "A IA irá gerar questões objetivas "
-                        "com alternativas e gabarito."
-                    )
-
-                # ----------------------------------------------------------
-                # DISSERTATIVA
-                # ----------------------------------------------------------
-                elif tipo_prova == "Dissertativa Completa":
-
-                    tipo_questao = "Dissertativa"
-
-                    num_questoes = st.number_input(
-                        "Número de questões dissertativas:",
-                        min_value=1,
-                        max_value=20,
-                        value=5
-                    )
-
-                    params_formulas = st.text_area(
-                        "Competências e conteúdos obrigatórios:"
-                    )
-
-                    st.info(
-                        "A IA irá gerar perguntas abertas "
-                        "com resposta discursiva."
-                    )
-
-                # ----------------------------------------------------------
-                # ESTUDO DE CASO
-                # ----------------------------------------------------------
-                elif tipo_prova == "Estudo de Caso Aplicado":
-
-                    tipo_questao = "Estudo de Caso"
-
-                    num_questoes = 1
-
-                    contexto_empresa = st.text_input(
-                        "Empresa/Cenário (Opcional):"
-                    )
-
-                    params_formulas = st.text_area(
-                        "Tecnologias obrigatórias "
-                        "(Excel, PROCX, VBA, SQL, Redes etc.):"
-                    )
-
-                    entregavel = st.multiselect(
-                        "Entregáveis do aluno:",
-                        [
-                            "Arquivo Excel",
-                            "PDF",
-                            "Documento Word",
-                            "Código Fonte",
-                            "Relatório Técnico",
-                        ],
-                        default=["Arquivo Excel"]
-                    )
-
-                    st.success(
-                        "A IA irá gerar um estudo de caso "
-                        "profissional baseado em cenário real."
-                    )
-
-                # ----------------------------------------------------------
-                # HÍBRIDA
-                # ----------------------------------------------------------
-                elif tipo_prova == "Avaliação Híbrida":
-
-                    tipo_questao = "Híbrida"
-
-                    qtd_objetivas = st.number_input(
-                        "Quantidade de objetivas:",
-                        min_value=1,
-                        max_value=20,
-                        value=5
-                    )
-
-                    qtd_dissertativas = st.number_input(
-                        "Quantidade de dissertativas:",
-                        min_value=1,
-                        max_value=20,
-                        value=3
-                    )
-
-                    incluir_estudo = st.checkbox(
-                        "Incluir Estudo de Caso Aplicado",
-                        value=True
-                    )
-
-                    num_alternativas = st.selectbox(
-                        "Alternativas das objetivas:",
-                        [2, 3, 4, 5],
-                        index=2
-                    )
-
-                    params_formulas = st.text_area(
-                        "Conteúdos obrigatórios:"
-                    )
-
-                    num_questoes = (
-                        qtd_objetivas +
-                        qtd_dissertativas
-                    )
-
-                    if incluir_estudo:
-                        num_questoes += 1
-
-                    st.success(
-                        "A IA irá gerar uma prova completa "
-                        "com múltipla escolha + dissertativa "
-                        "+ estudo de caso."
-                    )
-
-                st.markdown("---")
-
-                # ==========================================================
-                # ETAPA 5 — ALUNO ALVO
-                # ==========================================================
-                st.markdown("##### **Etapa 5: Vinculação do Discente**")
-
-                lista_alunos = [
-                    k
-                    for k, v in st.session_state.usuarios_cadastrados.items()
-                    if v["perfil"] == "Aluno"
+            usar_ia = st.radio(
+                "Modo de criação:",
+                [
+                    "IA (Automático)",
+                    "Manual (Professor criará depois)"
                 ]
+            )
 
-                aluno_alvo = st.selectbox(
-                    "Liberar acesso exclusivo para:",
-                    lista_alunos
-                    if lista_alunos
-                    else ["Nenhum aluno cadastrado"]
+            st.markdown("---")
+
+            # ==========================================================
+            # ETAPA 4 — CONFIGURAÇÃO DINÂMICA
+            # ==========================================================
+            st.markdown("##### **Etapa 4: Configuração Técnica da Avaliação**")
+
+            tipo_questao = ""
+            num_alternativas = 0
+
+            # ----------------------------------------------------------
+            # MÚLTIPLA ESCOLHA
+            # ----------------------------------------------------------
+            if tipo_prova == "Múltiplas Escolhas Estruturadas":
+
+                tipo_questao = "Múltipla Escolha"
+
+                num_questoes = st.number_input(
+                    "Número de questões:",
+                    min_value=1,
+                    max_value=30,
+                    value=10
                 )
 
-                st.markdown("---")
+                num_alternativas = st.selectbox(
+                    "Número de alternativas:",
+                    [2, 3, 4, 5],
+                    index=2
+                )
 
-                # ==========================================================
-                # ETAPA 6 — IA
-                # ==========================================================
-                st.markdown("##### 🤖 Geração com Inteligência Artificial")
-
-                tema_prova = None
-                contexto_prova = None
-
-                if usar_ia == "IA (Automático)":
-
-                    tema_prova = st.text_input(
-                        "Tema central da avaliação:"
-                    )
-
-                    contexto_prova = st.text_area(
-                        "Contexto pedagógico adicional:"
-                    )
+                params_formulas = st.text_area(
+                    "Funções/Conteúdos obrigatórios:"
+                )
 
                 st.info(
-                    "A avaliação será criada "
-                    "automaticamente pela IA."
+                    "A IA irá gerar questões objetivas "
+                    "com alternativas e gabarito."
                 )
 
-                # ==========================================================
-                # BOTÃO GERAR
-                # ==========================================================
-                if st.button(
-                    "🚀 Finalizar, Gerar e Liberar Prova",
-                    disabled=st.session_state.loading
-                ):
+            # ----------------------------------------------------------
+            # DISSERTATIVA
+            # ----------------------------------------------------------
+            elif tipo_prova == "Dissertativa Completa":
 
-                    if not materia:
-                        st.warning(
-                            "Por favor, informe a disciplina."
+                tipo_questao = "Dissertativa"
+
+                num_questoes = st.number_input(
+                    "Número de questões dissertativas:",
+                    min_value=1,
+                    max_value=20,
+                    value=5
+                )
+
+                params_formulas = st.text_area(
+                    "Competências e conteúdos obrigatórios:"
+                )
+
+                st.info(
+                    "A IA irá gerar perguntas abertas "
+                    "com resposta discursiva."
+                )
+
+            # ----------------------------------------------------------
+            # ESTUDO DE CASO
+            # ----------------------------------------------------------
+            elif tipo_prova == "Estudo de Caso Aplicado":
+
+                tipo_questao = "Estudo de Caso"
+
+                num_questoes = 1
+
+                contexto_empresa = st.text_input(
+                    "Empresa/Cenário (Opcional):"
+                )
+
+                params_formulas = st.text_area(
+                    "Tecnologias obrigatórias "
+                    "(Excel, PROCX, VBA, SQL, Redes etc.):"
+                )
+
+                entregavel = st.multiselect(
+                    "Entregáveis do aluno:",
+                    [
+                        "Arquivo Excel",
+                        "PDF",
+                        "Documento Word",
+                        "Código Fonte",
+                        "Relatório Técnico",
+                    ],
+                    default=["Arquivo Excel"]
+                )
+
+                st.success(
+                    "A IA irá gerar um estudo de caso "
+                    "profissional baseado em cenário real."
+                )
+
+            # ----------------------------------------------------------
+            # HÍBRIDA
+            # ----------------------------------------------------------
+            elif tipo_prova == "Avaliação Híbrida":
+
+                tipo_questao = "Híbrida"
+
+                qtd_objetivas = st.number_input(
+                    "Quantidade de objetivas:",
+                    min_value=1,
+                    max_value=20,
+                    value=5
+                )
+
+                qtd_dissertativas = st.number_input(
+                    "Quantidade de dissertativas:",
+                    min_value=1,
+                    max_value=20,
+                    value=3
+                )
+
+                incluir_estudo = st.checkbox(
+                    "Incluir Estudo de Caso Aplicado",
+                    value=True
+                )
+
+                num_alternativas = st.selectbox(
+                    "Alternativas das objetivas:",
+                    [2, 3, 4, 5],
+                    index=2
+                )
+
+                params_formulas = st.text_area(
+                    "Conteúdos obrigatórios:"
+                )
+
+                num_questoes = (
+                    qtd_objetivas +
+                    qtd_dissertativas
+                )
+
+                if incluir_estudo:
+                    num_questoes += 1
+
+                st.success(
+                    "A IA irá gerar uma prova completa "
+                    "com múltipla escolha + dissertativa "
+                    "+ estudo de caso."
+                )
+
+            st.markdown("---")
+
+            # ==========================================================
+            # ETAPA 5 — ALUNO ALVO
+            # ==========================================================
+            st.markdown("##### **Etapa 5: Vinculação do Discente**")
+
+            lista_alunos = [
+                k
+                for k, v in st.session_state.usuarios_cadastrados.items()
+                if v["perfil"] == "Aluno"
+            ]
+
+            aluno_alvo = st.selectbox(
+                "Liberar acesso exclusivo para:",
+                lista_alunos
+                if lista_alunos
+                else ["Nenhum aluno cadastrado"]
+            )
+
+            st.markdown("---")
+
+            # ==========================================================
+            # ETAPA 6 — IA
+            # ==========================================================
+            st.markdown("##### 🤖 Geração com Inteligência Artificial")
+
+            tema_prova = None
+            contexto_prova = None
+
+            if usar_ia == "IA (Automático)":
+
+                tema_prova = st.text_input(
+                    "Tema central da avaliação:"
+                )
+
+                contexto_prova = st.text_area(
+                    "Contexto pedagógico adicional:"
+                )
+
+            st.info(
+                "A avaliação será criada "
+                "automaticamente pela IA."
+            )
+
+            # ==========================================================
+            # BOTÃO GERAR
+            # ==========================================================
+            if st.button(
+                "🚀 Finalizar, Gerar e Liberar Prova",
+                disabled=st.session_state.loading
+            ):
+
+                if not materia:
+                    st.warning(
+                        "Por favor, informe a disciplina."
+                    )
+
+                elif aluno_alvo == "Nenhum aluno cadastrado":
+                    st.warning(
+                        "Nenhum aluno disponível."
+                    )
+
+                else:
+
+                    st.session_state.loading = True
+
+                    questoes_geradas = gerar_questoes_ia(
+                        tema_prova,
+                        contexto_prova,
+                        nivel_dificuldade,
+                        tipo_questao,
+                        num_questoes,
+                        num_alternativas,
+                    )
+
+                    prova_nova = {
+                        "questoes": questoes_geradas,
+                        "area": area,
+                        "curso": curso,
+                        "materia": materia,
+                        "turma": turma,
+                        "unidade": unidade,
+                        "tipo_prova": tipo_prova,
+                        "tipo_questao": tipo_questao,
+                        "origem_questoes": origem_questoes,
+                        "nivel_dificuldade": nivel_dificuldade,
+                        "num_questoes": num_questoes,
+                        "num_alternativas": num_alternativas,
+                        "parametros": params_formulas,
+                        "status": "Liberada",
+                        "data_criacao": datetime.now().strftime("%d/%m/%Y"),
+                    }
+
+                    st.session_state.provas_geradas[
+                        aluno_alvo
+                    ] = prova_nova
+
+                    prova_individual = {
+                        aluno_alvo: prova_nova
+                    }
+
+                    with st.spinner(
+                        "Salvando avaliação..."
+                    ):
+                        resultado = salvar_dados_supabase(
+                            "provas",
+                            prova_individual
                         )
 
-                    elif aluno_alvo == "Nenhum aluno cadastrado":
-                        st.warning(
-                            "Nenhum aluno disponível."
+                    st.session_state.loading = False
+
+                    if resultado:
+
+                        st.success(
+                            f"✅ Avaliação liberada "
+                            f"com sucesso para "
+                            f"{aluno_alvo}"
+                        )
+
+                        st.session_state.provas_geradas = (
+                            ler_dados_supabase("provas")
                         )
 
                     else:
-
-                        st.session_state.loading = True
-
-                        questoes_geradas = gerar_questoes_ia(
-                            tema_prova,
-                            contexto_prova,
-                            nivel_dificuldade,
-                            tipo_questao,
-                            num_questoes,
-                            num_alternativas,
+                        st.error(
+                            "❌ Erro ao salvar "
+                            "no Supabase."
                         )
+        elif "📚 Banco de Questões" in opcao_menu:
+            st.subheader("📚 Banco de Questões Integrado")
+            st.info(
+                "Módulo em sincronia contínua. Permite resgatar itens avaliativos pré-configurados da matriz SENAI."
+            )
 
-                        prova_nova = {
-                            "questoes": questoes_geradas,
-                            "area": area,
-                            "curso": curso,
-                            "materia": materia,
-                            "turma": turma,
-                            "unidade": unidade,
-                            "tipo_prova": tipo_prova,
-                            "tipo_questao": tipo_questao,
-                            "origem_questoes": origem_questoes,
-                            "nivel_dificuldade": nivel_dificuldade,
-                            "num_questoes": num_questoes,
-                            "num_alternativas": num_alternativas,
-                            "parametros": params_formulas,
-                            "status": "Liberada",
-                            "data_criacao": datetime.now().strftime("%d/%m/%Y"),
-                        }
-
-                        st.session_state.provas_geradas[
-                            aluno_alvo
-                        ] = prova_nova
-
-                        prova_individual = {
-                            aluno_alvo: prova_nova
-                        }
-
-                        with st.spinner(
-                            "Salvando avaliação..."
-                        ):
-                            resultado = salvar_dados_supabase(
-                                "provas",
-                                prova_individual
-                            )
-
-                        st.session_state.loading = False
-
-                        if resultado:
-
-                            st.success(
-                                f"✅ Avaliação liberada "
-                                f"com sucesso para "
-                                f"{aluno_alvo}"
-                            )
-
-                            st.session_state.provas_geradas = (
-                                ler_dados_supabase("provas")
-                            )
-
-                        else:
-                            st.error(
-                                "❌ Erro ao salvar "
-                                "no Supabase."
-                            )
-            elif "📚 Banco de Questões" in opcao_menu:
-                st.subheader("📚 Banco de Questões Integrado")
-                st.info(
-                    "Módulo em sincronia contínua. Permite resgatar itens avaliativos pré-configurados da matriz SENAI."
+        elif "📝 Avaliações Ativas" in opcao_menu:
+            st.subheader("📝 Monitoramento de Avaliações Ativas")
+            if len(st.session_state.provas_geradas) > 0:
+                df_ativas = pd.DataFrame(
+                    [
+                        {"Matrícula": k, **v}
+                        for k, v in st.session_state.provas_geradas.items()
+                    ]
                 )
+                st.dataframe(df_ativas, use_container_width=True, hide_index=True)
+            else:
+                st.info("Nenhuma avaliação ativa encontrada no banco de dados.")
 
-            elif "📝 Avaliações Ativas" in opcao_menu:
-                st.subheader("📝 Monitoramento de Avaliações Ativas")
-                if len(st.session_state.provas_geradas) > 0:
-                    df_ativas = pd.DataFrame(
-                        [
-                            {"Matrícula": k, **v}
-                            for k, v in st.session_state.provas_geradas.items()
-                        ]
+        elif "📤 Entregas" in opcao_menu:
+            st.subheader("📥 Arquivo de Entregas Realizadas pelos Alunos")
+            if len(st.session_state.entregas_sistema) > 0:
+                dados_completos = []
+                for aluno, info in st.session_state.entregas_sistema.items():
+                    dados_completos.append(
+                        {
+                            "Aluno ID": aluno,
+                            "Disciplina": info.get("materia", "Não informada"),
+                            "Data do Envio": info.get("data_entrega", "-"),
+                            "Status": info.get("status", "Enviado"),
+                            "Nota Atribuída": info.get("nota", 0.0),
+                        }
                     )
-                    st.dataframe(df_ativas, use_container_width=True, hide_index=True)
-                else:
-                    st.info("Nenhuma avaliação ativa encontrada no banco de dados.")
-
-            elif "📤 Entregas" in opcao_menu:
-                st.subheader("📥 Arquivo de Entregas Realizadas pelos Alunos")
-                if len(st.session_state.entregas_sistema) > 0:
-                    dados_completos = []
-                    for aluno, info in st.session_state.entregas_sistema.items():
-                        dados_completos.append(
-                            {
-                                "Aluno ID": aluno,
-                                "Disciplina": info.get("materia", "Não informada"),
-                                "Data do Envio": info.get("data_entrega", "-"),
-                                "Status": info.get("status", "Enviado"),
-                                "Nota Atribuída": info.get("nota", 0.0),
-                            }
-                        )
-                    st.dataframe(
-                        pd.DataFrame(dados_completos), use_container_width=True, hide_index=True
-                    )
-                else:
-                    st.info("Nenhuma entrega feita pelos alunos até o momento.")
-
-            elif "📊 Relatórios" in opcao_menu or "⚙ Configurações" in opcao_menu:
-                st.info(
-                    "Utilize as opções principais do menu para interagir com a base operacional."
+                st.dataframe(
+                    pd.DataFrame(dados_completos), use_container_width=True, hide_index=True
                 )
+            else:
+                st.info("Nenhuma entrega feita pelos alunos até o momento.")
+
+        elif "📊 Relatórios" in opcao_menu or "⚙ Configurações" in opcao_menu:
+            st.info(
+                "Utilize as opções principais do menu para interagir com a base operacional."
+            )
 
     # ==============================================================================
     # 7. MÓDULO DISCENTE - ALUNO
