@@ -17,20 +17,34 @@ import google.generativeai as genai
 # ==============================================================================
 # CONFIGURAÇÃO GEMINI
 # ==============================================================================
+
+cliente_ia = None
+
 try:
-    GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
 
-    genai.configure(api_key=GEMINI_API_KEY)
-
-    cliente_ia = genai.GenerativeModel(
-        "gemini-1.5-flash"
+    GEMINI_API_KEY = st.secrets.get(
+        "GEMINI_API_KEY",
+        None
     )
 
+    if GEMINI_API_KEY:
+
+        genai.configure(
+            api_key=GEMINI_API_KEY
+        )
+
+        cliente_ia = (
+            genai.GenerativeModel(
+                "gemini-1.5-flash"
+            )
+        )
+
 except Exception as e:
+
     cliente_ia = None
-    st.warning(
-        "⚠️ Gemini não configurado. "
-        "A geração por IA ficará indisponível."
+
+    print(
+        f"Erro ao configurar Gemini: {e}"
     )
 
 
@@ -47,15 +61,25 @@ def gerar_questoes_ia(
 ):
     """
     Geração inteligente de avaliações SENAI
-    com Gemini IA.
+    utilizando Gemini IA.
     """
 
     try:
 
+        # ======================================================
+        # VALIDAÇÃO GEMINI
+        # ======================================================
         if cliente_ia is None:
+
             raise Exception(
-                "Cliente Gemini não configurado."
+                "Gemini não configurado."
             )
+
+        tema = tema or "Tema técnico SENAI"
+        contexto = contexto or (
+            "Criar avaliação profissional "
+            "contextualizada."
+        )
 
         # ======================================================
         # MÚLTIPLA ESCOLHA
@@ -86,8 +110,7 @@ REGRAS:
 2. Nada genérico.
 3. Contexto profissional SENAI.
 4. Incluir gabarito.
-
-RETORNE APENAS JSON.
+5. Retorne apenas JSON válido.
 
 Formato obrigatório:
 
@@ -131,8 +154,7 @@ REGRAS:
 2. Respostas argumentativas.
 3. Nível técnico SENAI.
 4. Nada genérico.
-
-RETORNE APENAS JSON.
+5. Retorne apenas JSON válido.
 
 Formato:
 
@@ -179,12 +201,10 @@ REGRAS IMPORTANTES:
 - Redes
 - Programação
 - Dados
-
 5. Incluir instruções claras.
 6. Criar entregáveis.
 7. Estilo SENAI profissional.
-
-RETORNE APENAS JSON.
+8. Retorne apenas JSON válido.
 
 Formato:
 
@@ -235,7 +255,7 @@ A prova deve conter:
 - questões dissertativas
 - estudo de caso aplicado
 
-RETORNE APENAS JSON.
+RETORNE APENAS JSON VÁLIDO.
 
 Formato:
 
@@ -268,6 +288,7 @@ Formato:
 """
 
         else:
+
             raise Exception(
                 f"Tipo de prova inválido: {tipo}"
             )
@@ -275,8 +296,10 @@ Formato:
         # ======================================================
         # CHAMADA GEMINI
         # ======================================================
-        resposta = cliente_ia.generate_content(
-            prompt
+        resposta = (
+            cliente_ia.generate_content(
+                prompt
+            )
         )
 
         texto = (
@@ -295,38 +318,79 @@ Formato:
             .strip()
         )
 
-        questoes = json.loads(texto)
+        if not texto:
+
+            raise Exception(
+                "Gemini retornou vazio."
+            )
+
+        questoes = json.loads(
+            texto
+        )
+
+        if not isinstance(
+            questoes,
+            list
+        ):
+            raise Exception(
+                "Formato JSON inválido."
+            )
 
         return questoes
 
     except Exception as e:
 
         st.error(
-            f"❌ Erro ao gerar questões com IA: {e}"
+            f"❌ Erro ao gerar questões "
+            f"com IA: {e}"
         )
 
         return [
             {
                 "tipo": "erro",
-                "enunciado": (
-                    "Erro ao gerar avaliação."
-                )
+                "enunciado":
+                "Erro ao gerar avaliação."
             }
         ]
     
-    # ==============================================================================
-    # 1. CONFIGURAÇÃO E CONEXÃO SEGURA AO SUPABASE (SQL NA NUVEM)
-    # ==============================================================================
-    SUPABASE_URL = "https://hjtqqshmxpeleywwzgca.supabase.co"
-    SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhqdHFxc2hteHBlbGV5d3d6Z2NhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0OTY1NDgsImV4cCI6MjA5NTA3MjU0OH0.4v_EyCfUyE2ZEgqOYdnFNZlHVhG8_Quc9otQ7o8Di_s"
+# ==============================================================================
+# 2. CONFIGURAÇÃO E CONEXÃO SEGURA AO SUPABASE (SQL NA NUVEM)
+# ==============================================================================
 
-    # Cabeçalhos padrão para comunicação com a API REST do Supabase
+try:
+
+    SUPABASE_URL = st.secrets["SUPABASE_URL"]
+    SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
+
+    # ======================================================
+    # Cabeçalhos padrão REST API Supabase
+    # ======================================================
     HEADERS = {
         "apikey": SUPABASE_KEY,
         "Authorization": f"Bearer {SUPABASE_KEY}",
         "Content-Type": "application/json",
         "Prefer": "return=representation",
     }
+
+except Exception as e:
+
+    st.error(
+        f"❌ Credenciais do Supabase "
+        f"não configuradas corretamente: {e}"
+    )
+
+    st.stop()
+
+
+# ==============================================================================
+# CABEÇALHOS PADRÃO DA API REST SUPABASE
+# ==============================================================================
+HEADERS = {
+    "apikey": SUPABASE_KEY,
+    "Authorization": f"Bearer {SUPABASE_KEY}",
+    "Content-Type": "application/json",
+    "Prefer": "return=representation",
+}
 
 # ==============================================================================
 # 2. CONFIGURAÇÃO GEMINI IA
@@ -528,378 +592,378 @@ def salvar_dados_supabase(tabela, dados):
         st.session_state.provas_geradas = {}
         st.session_state.entregas_sistema = {}
 
-    # ==============================================================================
-    # 3. INTERFACE VISUAL CORPORATIVA (BMW Portinari Blue, Dourado e Brilhante)
-    # ==============================================================================
-    st.set_page_config(page_title="SUATS | SENAI-122", page_icon="🏆", layout="wide")
+# ==============================================================================
+# 3. INTERFACE VISUAL CORPORATIVA (BMW Portinari Blue, Dourado e Brilhante)
+# ==============================================================================
+st.set_page_config(page_title="SUATS | SENAI-122", page_icon="🏆", layout="wide")
 
+st.markdown(
+    """
+    <style>
+    .stApp {
+        background-color: #0F111A;
+        color: #F4F4F6;
+    }
+    [data-testid="stSidebar"] {
+        background-color: #161925;
+        border-right: 2px solid #D4AF37;
+    }
+    h1, h2, h3, h4, h5, h6 {
+        color: #D4AF37 !important;
+    }
+    .stButton > button {
+        background-color: #D4AF37 !important;
+        color: #0F111A !important;
+        font-weight: bold !important;
+        border-radius: 6px !important;
+        border: 1px solid #D4AF37 !important;
+    }
+    .stTextInput > div > div > input, .stSelectbox > div > div, .stTextArea textarea {
+        background-color: #1E2233 !important;
+        color: #F4F4F6 !important;
+        border: 1px solid #D4AF37 !important;
+    }
+    div[data-testid="stMetricValue"] {
+        color: #D4AF37 !important;
+        font-weight: bold;
+    }
+    div[data-testid="stMetricLabel"] {
+        color: #F4F4F6 !important;
+
+Parte 2:
+
+    }
+    .css-19v6m80 {
+        background-color: #161925 !important;
+    }
+    </style>
+""",
+    unsafe_allow_html=True,
+)
+
+# ==============================================================================
+# 4. PORTAL DE LOGIN / CONTROLE DE ACESSO
+# ==============================================================================
+if st.session_state.usuario_logado is None:
     st.markdown(
-        """
-        <style>
-        .stApp {
-            background-color: #0F111A;
-            color: #F4F4F6;
-        }
-        [data-testid="stSidebar"] {
-            background-color: #161925;
-            border-right: 2px solid #D4AF37;
-        }
-        h1, h2, h3, h4, h5, h6 {
-            color: #D4AF37 !important;
-        }
-        .stButton > button {
-            background-color: #D4AF37 !important;
-            color: #0F111A !important;
-            font-weight: bold !important;
-            border-radius: 6px !important;
-            border: 1px solid #D4AF37 !important;
-        }
-        .stTextInput > div > div > input, .stSelectbox > div > div, .stTextArea textarea {
-            background-color: #1E2233 !important;
-            color: #F4F4F6 !important;
-            border: 1px solid #D4AF37 !important;
-        }
-        div[data-testid="stMetricValue"] {
-            color: #D4AF37 !important;
-            font-weight: bold;
-        }
-        div[data-testid="stMetricLabel"] {
-            color: #F4F4F6 !important;
-
-    Parte 2:
-
-        }
-        .css-19v6m80 {
-            background-color: #161925 !important;
-        }
-        </style>
-    """,
+        "<h2 style='text-align:center;'>🔐 SUATS | Portal de Acesso</h2>",
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        "<p style='text-align:center;'>Insira suas credenciais corporativas SENAI para acessar a plataforma.</p>",
         unsafe_allow_html=True,
     )
 
-    # ==============================================================================
-    # 4. PORTAL DE LOGIN / CONTROLE DE ACESSO
-    # ==============================================================================
-    if st.session_state.usuario_logado is None:
-        st.markdown(
-            "<h2 style='text-align:center;'>🔐 SUATS | Portal de Acesso</h2>",
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            "<p style='text-align:center;'>Insira suas credenciais corporativas SENAI para acessar a plataforma.</p>",
-            unsafe_allow_html=True,
-        )
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        u_in = st.text_input("Login Corporativo (Ex: snXXXXXXX):").strip().lower()
+        s_in = st.text_input("Senha de Acesso:", type="password").strip()
 
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col2:
-            u_in = st.text_input("Login Corporativo (Ex: snXXXXXXX):").strip().lower()
-            s_in = st.text_input("Senha de Acesso:", type="password").strip()
+        if st.button("🔓 Autenticar no Sistema"):
+            dados_drive = ler_dados_supabase("usuarios")
 
-            if st.button("🔓 Autenticar no Sistema"):
-                dados_drive = ler_dados_supabase("usuarios")
+            # Mecanismo de contingência local estruturado
+            user_data = dados_drive.get(u_in) if dados_drive else None
+            if not user_data and u_in in USUARIOS_PADRAO:
+                user_data = USUARIOS_PADRAO[u_in]
 
-                # Mecanismo de contingência local estruturado
-                user_data = dados_drive.get(u_in) if dados_drive else None
-                if not user_data and u_in in USUARIOS_PADRAO:
-                    user_data = USUARIOS_PADRAO[u_in]
+            # Comparação de senha corrigida com .strip()
+            if user_data and str(user_data.get("senha", "")).strip() == s_in:
+                st.session_state.usuario_logado = u_in
+                st.session_state.perfil_logado = user_data["perfil"]
+                st.session_state.nome_exibicao = user_data.get("nome", u_in)
 
-                # Comparação de senha corrigida com .strip()
-                if user_data and str(user_data.get("senha", "")).strip() == s_in:
-                    st.session_state.usuario_logado = u_in
-                    st.session_state.perfil_logado = user_data["perfil"]
-                    st.session_state.nome_exibicao = user_data.get("nome", u_in)
-
-                    if dados_drive:
-                        st.session_state.usuarios_cadastrados = dados_drive
-                    else:
-                        st.session_state.usuarios_cadastrados = USUARIOS_PADRAO
-                        salvar_dados_supabase("usuarios", USUARIOS_PADRAO)
-
-                    st.session_state.provas_geradas = ler_dados_supabase("provas")
-                    st.session_state.entregas_sistema = ler_dados_supabase("entregas")
-                    st.rerun()
+                if dados_drive:
+                    st.session_state.usuarios_cadastrados = dados_drive
                 else:
-                    st.error(
-                        "Login ou senha incorretos. Por favor verifique suas credenciais corporativas."
-                    )
-    else:
-        # DEFINIÇÃO DOS MENUS DE ACESSO CONFORME PERFIL DOCENTE / DISCENTE / GESTOR
-        opcao_menu = None
+                    st.session_state.usuarios_cadastrados = USUARIOS_PADRAO
+                    salvar_dados_supabase("usuarios", USUARIOS_PADRAO)
 
-        with st.sidebar:
-            st.markdown(
-                f"<h3 style='text-align:center;'>🏆 SENAI-122</h3>", unsafe_allow_html=True
-            )
-            st.write(f"Conectado: **{st.session_state.nome_exibicao}**")
-            st.write(f"Perfil: *{st.session_state.perfil_logado}*")
-            st.write("---")
-
-            if st.session_state.perfil_logado == "Gestor/Diretor":
-                opcao_menu = st.radio(
-                    "Menu de Navegação",
-                    [
-                        "🏠 Dashboard Geral",
-                        "👥 Usuários",
-                        "🏫 Turmas",
-                        "👨‍🏫 Professores",
-                        "📝 Avaliações",
-                        "📊 Analytics",
-                        "📁 Relatórios",
-                        "🛡 Auditoria",
-                        "⚙ Configurações",
-                    ],
-                )
-            elif st.session_state.perfil_logado == "Professor":
-                opcao_menu = st.radio(
-                    "Menu de Navegação",
-                    [
-                        "🏠 Dashboard",
-                        "➕ Criar Avaliação",
-                        "📚 Banco de Questões",
-                        "📝 Avaliações Ativas",
-                        "📤 Entregas",
-                        "📊 Relatórios",
-                        "⚙ Configurações",
-                    ],
-                )
-            elif st.session_state.perfil_logado == "Aluno":
-                opcao_menu = st.radio(
-                    "Menu de Navegação",
-                    [
-                        "🏠 Início",
-                        "📝 Minhas Avaliações",
-                        "📥 Downloads",
-                        "📤 Upload",
-                        "📈 Histórico",
-                        "💬 Feedbacks",
-                    ],
-                )
-            elif st.session_state.perfil_logado == "Coordenador":
-                opcao_menu = st.radio(
-                    "Menu de Navegação",
-                    ["🏠 Dashboard", "🏫 Turmas", "📊 Analytics", "📁 Relatórios"],
-                )
-
-            st.write("---")
-            if st.button("🚪 Encerrar Sessão"):
-                st.session_state.usuario_logado = None
-                st.session_state.perfil_logado = None
-                st.session_state.nome_exibicao = None
+                st.session_state.provas_geradas = ler_dados_supabase("provas")
+                st.session_state.entregas_sistema = ler_dados_supabase("entregas")
                 st.rerun()
+            else:
+                st.error(
+                    "Login ou senha incorretos. Por favor verifique suas credenciais corporativas."
+                )
+else:
+    # DEFINIÇÃO DOS MENUS DE ACESSO CONFORME PERFIL DOCENTE / DISCENTE / GESTOR
+    opcao_menu = None
 
-        st.title(f"Sistema Unificado de Avaliações Técnicas (SUATS)")
-        st.markdown(f"**Navegação Ativa:** {opcao_menu}")
-        st.markdown("---")
+    with st.sidebar:
+        st.markdown(
+            f"<h3 style='text-align:center;'>🏆 SENAI-122</h3>", unsafe_allow_html=True
+        )
+        st.write(f"Conectado: **{st.session_state.nome_exibicao}**")
+        st.write(f"Perfil: *{st.session_state.perfil_logado}*")
+        st.write("---")
 
-        # segurança contra perfil inválido
-        if opcao_menu is None:
-            opcao_menu = "🏠 Início"
-
-        # ==============================================================================
-        # 5. MÓDULO EXECUTIVO - GESTOR / DIRETOR
-        # ==============================================================================
         if st.session_state.perfil_logado == "Gestor/Diretor":
+            opcao_menu = st.radio(
+                "Menu de Navegação",
+                [
+                    "🏠 Dashboard Geral",
+                    "👥 Usuários",
+                    "🏫 Turmas",
+                    "👨‍🏫 Professores",
+                    "📝 Avaliações",
+                    "📊 Analytics",
+                    "📁 Relatórios",
+                    "🛡 Auditoria",
+                    "⚙ Configurações",
+                ],
+            )
+        elif st.session_state.perfil_logado == "Professor":
+            opcao_menu = st.radio(
+                "Menu de Navegação",
+                [
+                    "🏠 Dashboard",
+                    "➕ Criar Avaliação",
+                    "📚 Banco de Questões",
+                    "📝 Avaliações Ativas",
+                    "📤 Entregas",
+                    "📊 Relatórios",
+                    "⚙ Configurações",
+                ],
+            )
+        elif st.session_state.perfil_logado == "Aluno":
+            opcao_menu = st.radio(
+                "Menu de Navegação",
+                [
+                    "🏠 Início",
+                    "📝 Minhas Avaliações",
+                    "📥 Downloads",
+                    "📤 Upload",
+                    "📈 Histórico",
+                    "💬 Feedbacks",
+                ],
+            )
+        elif st.session_state.perfil_logado == "Coordenador":
+            opcao_menu = st.radio(
+                "Menu de Navegação",
+                ["🏠 Dashboard", "🏫 Turmas", "📊 Analytics", "📁 Relatórios"],
+            )
 
-            if "🏠 Dashboard Geral" in opcao_menu:
-                df_users = pd.DataFrame(
-                    [
-                        {"id": k, **v}
-                        for k, v in st.session_state.usuarios_cadastrados.items()
-                    ]
-                )
-                total_alunos = (
-                    len(df_users[df_users["perfil"] == "Aluno"])
-                    if not df_users.empty
-                    else 0
-                )
-                total_profs = (
-                    len(df_users[df_users["perfil"] == "Professor"])
-                    if not df_users.empty
-                    else 0
-                )
+        st.write("---")
+        if st.button("🚪 Encerrar Sessão"):
+            st.session_state.usuario_logado = None
+            st.session_state.perfil_logado = None
+            st.session_state.nome_exibicao = None
+            st.rerun()
 
-                c1, c2, c3, c4 = st.columns(4)
-                c1.metric("Alunos Cadastrados", f"{total_alunos}")
-                c2.metric("Corpo Docente", f"{total_profs}")
-                c3.metric("Provas em Aberto", f"{len(st.session_state.provas_geradas)}")
-                c4.metric(
-                    "Entregas Realizadas", f"{len(st.session_state.entregas_sistema)}"
-                )
+    st.title(f"Sistema Unificado de Avaliações Técnicas (SUATS)")
+    st.markdown(f"**Navegação Ativa:** {opcao_menu}")
+    st.markdown("---")
 
-                st.write("---")
-                st.subheader("👁️ Monitoramento de Exames Real-Time")
+    # segurança contra perfil inválido
+    if opcao_menu is None:
+        opcao_menu = "🏠 Início"
 
-                if len(st.session_state.entregas_sistema) > 0:
-                    dados_entregas = []
-                    for aluno, info in st.session_state.entregas_sistema.items():
-                        nome_completo = st.session_state.usuarios_cadastrados.get(
-                            aluno, {}
-                        ).get("nome", aluno)
-                        dados_entregas.append(
-                            {
-                                "Matrícula Aluno": aluno,
-                                "Nome Completo": nome_completo,
-                                "Exame/Disciplina": info.get("materia", "Não informada"),
-                                "Data/Hora de Envio": info.get("data_entrega", "-"),
-                                "Status do Envio": info.get("status", "Enviado"),
-                            }
-                        )
-                    st.dataframe(
-                        pd.DataFrame(dados_entregas),
-                        use_container_width=True,
-                        hide_index=True,
+    # ==============================================================================
+    # 5. MÓDULO EXECUTIVO - GESTOR / DIRETOR
+    # ==============================================================================
+    if st.session_state.perfil_logado == "Gestor/Diretor":
+
+        if "🏠 Dashboard Geral" in opcao_menu:
+            df_users = pd.DataFrame(
+                [
+                    {"id": k, **v}
+                    for k, v in st.session_state.usuarios_cadastrados.items()
+                ]
+            )
+            total_alunos = (
+                len(df_users[df_users["perfil"] == "Aluno"])
+                if not df_users.empty
+                else 0
+            )
+            total_profs = (
+                len(df_users[df_users["perfil"] == "Professor"])
+                if not df_users.empty
+                else 0
+            )
+
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Alunos Cadastrados", f"{total_alunos}")
+            c2.metric("Corpo Docente", f"{total_profs}")
+            c3.metric("Provas em Aberto", f"{len(st.session_state.provas_geradas)}")
+            c4.metric(
+                "Entregas Realizadas", f"{len(st.session_state.entregas_sistema)}"
+            )
+
+            st.write("---")
+            st.subheader("👁️ Monitoramento de Exames Real-Time")
+
+            if len(st.session_state.entregas_sistema) > 0:
+                dados_entregas = []
+                for aluno, info in st.session_state.entregas_sistema.items():
+                    nome_completo = st.session_state.usuarios_cadastrados.get(
+                        aluno, {}
+                    ).get("nome", aluno)
+                    dados_entregas.append(
+                        {
+                            "Matrícula Aluno": aluno,
+                            "Nome Completo": nome_completo,
+                            "Exame/Disciplina": info.get("materia", "Não informada"),
+                            "Data/Hora de Envio": info.get("data_entrega", "-"),
+                            "Status do Envio": info.get("status", "Enviado"),
+                        }
                     )
-                else:
-                    st.info(
-                        "Nenhuma atividade de entrega registrada em nuvem até o momento."
+                st.dataframe(
+                    pd.DataFrame(dados_entregas),
+                    use_container_width=True,
+                    hide_index=True,
+                )
+            else:
+                st.info(
+                    "Nenhuma atividade de entrega registrada em nuvem até o momento."
+                )
+
+        elif "👥 Usuários" in opcao_menu:
+            st.subheader("👤 Gerenciamento de Usuários")
+            col_form, col_lista = st.columns([1, 2])
+
+            with col_form:
+                st.markdown("### Vincular Novo Usuário")
+                # Utilizando st.form para limpar campos automaticamente após envio
+                with st.form("form_novo_usuario", clear_on_submit=True):
+                    novo_id = st.text_input("Login Corporativo:").strip().lower()
+                    novo_nome = st.text_input("Nome Completo:")
+                    nova_senha = st.text_input(
+                        "Senha Corporativa:", type="password"
+                    ).strip()
+                    novo_perfil = st.selectbox(
+                        "Perfil de Acesso:",
+                        ["Aluno", "Professor", "Coordenador", "Gestor/Diretor"],
                     )
 
-            elif "👥 Usuários" in opcao_menu:
-                st.subheader("👤 Gerenciamento de Usuários")
-                col_form, col_lista = st.columns([1, 2])
+                    submit_button = st.form_submit_button("Salvar Usuário")
 
-                with col_form:
-                    st.markdown("### Vincular Novo Usuário")
-                    # Utilizando st.form para limpar campos automaticamente após envio
-                    with st.form("form_novo_usuario", clear_on_submit=True):
-                        novo_id = st.text_input("Login Corporativo:").strip().lower()
-                        novo_nome = st.text_input("Nome Completo:")
-                        nova_senha = st.text_input(
-                            "Senha Corporativa:", type="password"
-                        ).strip()
-                        novo_perfil = st.selectbox(
-                            "Perfil de Acesso:",
-                            ["Aluno", "Professor", "Coordenador", "Gestor/Diretor"],
-                        )
-
-                        submit_button = st.form_submit_button("Salvar Usuário")
-
-                        if submit_button:
-                            if novo_id and novo_nome and nova_senha:
-                                # Prepara dicionário temporário apenas com este usuário
-                                novo_usuario_dict = {
-                                    novo_id: {
-                                        "nome": novo_nome,
-                                        "senha": nova_senha,
-                                        "perfil": novo_perfil,
-                                    }
+                    if submit_button:
+                        if novo_id and novo_nome and nova_senha:
+                            # Prepara dicionário temporário apenas com este usuário
+                            novo_usuario_dict = {
+                                novo_id: {
+                                    "nome": novo_nome,
+                                    "senha": nova_senha,
+                                    "perfil": novo_perfil,
                                 }
+                            }
 
-                                # Tenta salvar no Supabase
-                                if salvar_dados_supabase("usuarios", novo_usuario_dict):
-                                    # Atualiza estado local apenas se salvou com sucesso
-                                    st.session_state.usuarios_cadastrados[novo_id] = (
-                                        novo_usuario_dict[novo_id]
-                                    )
-                                    st.success(
-                                        f"Usuário '{novo_id}' cadastrado com sucesso!"
-                                    )
-                                    st.rerun()  # Atualiza a tabela
-                                else:
-                                    st.error(
-                                        "Erro ao salvar no banco de dados. Verifique a conexão."
-                                    )
+                            # Tenta salvar no Supabase
+                            if salvar_dados_supabase("usuarios", novo_usuario_dict):
+                                # Atualiza estado local apenas se salvou com sucesso
+                                st.session_state.usuarios_cadastrados[novo_id] = (
+                                    novo_usuario_dict[novo_id]
+                                )
+                                st.success(
+                                    f"Usuário '{novo_id}' cadastrado com sucesso!"
+                                )
+                                st.rerun()  # Atualiza a tabela
                             else:
-                                st.error("Preencha todos os campos.")
+                                st.error(
+                                    "Erro ao salvar no banco de dados. Verifique a conexão."
+                                )
+                        else:
+                            st.error("Preencha todos os campos.")
 
-                with col_lista:
-                    st.markdown("### Base Registrada")
-                    df_exibicao = pd.DataFrame(
-                        [
-                            {"ID": k, "Nome": v["nome"], "Perfil": v["perfil"]}
-                            for k, v in st.session_state.usuarios_cadastrados.items()
-                        ]
-                    )
-                    st.dataframe(df_exibicao, use_container_width=True, hide_index=True)
-
-            elif "🏫 Turmas" in opcao_menu:
-                st.subheader("🏫 Painel Coletivo de Turmas")
-                if len(st.session_state.provas_geradas) > 0:
-                    df_provas = pd.DataFrame(st.session_state.provas_geradas.values())
-                    if "turma" in df_provas.columns:
-                        turmas_detectadas = df_provas["turma"].unique()
-                        st.write(
-                            f"Turmas Ativas no Ciclo Corrente: **{', '.join(turmas_detectadas)}**"
-                        )
-                        st.dataframe(
-                            df_provas[["turma", "materia", "curso"]].drop_duplicates(),
-                            use_container_width=True,
-                            hide_index=True,
-                        )
-                    else:
-                        st.info("Nenhuma turma ativa vinculada no momento.")
-                else:
-                    st.info("Aguardando criação de exames pelos docentes.")
-
-            elif "👨‍🏫 Professores" in opcao_menu:
-                st.subheader("👨‍🏫 Alocação e Atividades Docentes")
-                df_users = pd.DataFrame(
-                    [
-                        {"id": k, **v}
-                        for k, v in st.session_state.usuarios_cadastrados.items()
-                    ]
-                )
-                if not df_users.empty:
-                    df_profs = df_users[df_users["perfil"] == "Professor"]
-                    st.dataframe(
-                        df_profs[["id", "nome"]], use_container_width=True, hide_index=True
-                    )
-
-            elif "📝 Avaliações" in opcao_menu:
-                st.subheader("📝 Repositório Geral de Exames")
-                if len(st.session_state.provas_geradas) > 0:
-                    df_provas_gerais = pd.DataFrame(
-                        [
-                            {"Vínculo": k, **v}
-                            for k, v in st.session_state.provas_geradas.items()
-                        ]
-                    )
-                    st.dataframe(
-                        df_provas_gerais, use_container_width=True, hide_index=True
-                    )
-                else:
-                    st.info("Nenhum exame cadastrado no sistema.")
-
-            elif "📊 Analytics" in opcao_menu:
-                st.subheader("📊 Relatórios e Indicadores Críticos")
-                st.markdown(
-                    f"- **Volume de Cadastros Totais:** {len(st.session_state.usuarios_cadastrados)}"
-                )
-                st.markdown(
-                    f"- **Provas Disponibilizadas:** {len(st.session_state.provas_geradas)}"
-                )
-                st.markdown(
-                    f"- **Taxa de Conclusão Global:** {len(st.session_state.entregas_sistema)} entregas efetuadas."
-                )
-
-            elif "📁 Relatórios" in opcao_menu:
-                st.subheader("📁 Exportação de Dados")
-                df_export = pd.DataFrame(
+            with col_lista:
+                st.markdown("### Base Registrada")
+                df_exibicao = pd.DataFrame(
                     [
                         {"ID": k, "Nome": v["nome"], "Perfil": v["perfil"]}
                         for k, v in st.session_state.usuarios_cadastrados.items()
                     ]
                 )
-                csv = df_export.to_csv(index=False).encode("utf-8")
-                st.download_button(
-                    "📥 Exportar Lista de Usuários (CSV)",
-                    csv,
-                    "usuarios_suats.csv",
-                    "text/csv",
+                st.dataframe(df_exibicao, use_container_width=True, hide_index=True)
+
+        elif "🏫 Turmas" in opcao_menu:
+            st.subheader("🏫 Painel Coletivo de Turmas")
+            if len(st.session_state.provas_geradas) > 0:
+                df_provas = pd.DataFrame(st.session_state.provas_geradas.values())
+                if "turma" in df_provas.columns:
+                    turmas_detectadas = df_provas["turma"].unique()
+                    st.write(
+                        f"Turmas Ativas no Ciclo Corrente: **{', '.join(turmas_detectadas)}**"
+                    )
+                    st.dataframe(
+                        df_provas[["turma", "materia", "curso"]].drop_duplicates(),
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+                else:
+                    st.info("Nenhuma turma ativa vinculada no momento.")
+            else:
+                st.info("Aguardando criação de exames pelos docentes.")
+
+        elif "👨‍🏫 Professores" in opcao_menu:
+            st.subheader("👨‍🏫 Alocação e Atividades Docentes")
+            df_users = pd.DataFrame(
+                [
+                    {"id": k, **v}
+                    for k, v in st.session_state.usuarios_cadastrados.items()
+                ]
+            )
+            if not df_users.empty:
+                df_profs = df_users[df_users["perfil"] == "Professor"]
+                st.dataframe(
+                    df_profs[["id", "nome"]], use_container_width=True, hide_index=True
                 )
 
-            elif "🛡 Auditoria" in opcao_menu:
-                st.subheader("🛡 Logs de Segurança e Auditoria")
-                st.code(
-                    f"[{datetime.now().strftime('%Y-%m-%d %H:%M')}] Usuário {st.session_state.usuario_logado} carregou o painel administrativo master."
+        elif "📝 Avaliações" in opcao_menu:
+            st.subheader("📝 Repositório Geral de Exames")
+            if len(st.session_state.provas_geradas) > 0:
+                df_provas_gerais = pd.DataFrame(
+                    [
+                        {"Vínculo": k, **v}
+                        for k, v in st.session_state.provas_geradas.items()
+                    ]
                 )
+                st.dataframe(
+                    df_provas_gerais, use_container_width=True, hide_index=True
+                )
+            else:
+                st.info("Nenhum exame cadastrado no sistema.")
 
-            elif "⚙ Configurações" in opcao_menu:
-                st.subheader("⚙ Configurações Gerais do Sistema")
-                st.write(
-                    f"Banco de Dados Ativo: **Supabase Cloud Relational (PostgreSQL)**"
-                )
-                st.write(f"Endpoint Conexão: {SUPABASE_URL}")
+        elif "📊 Analytics" in opcao_menu:
+            st.subheader("📊 Relatórios e Indicadores Críticos")
+            st.markdown(
+                f"- **Volume de Cadastros Totais:** {len(st.session_state.usuarios_cadastrados)}"
+            )
+            st.markdown(
+                f"- **Provas Disponibilizadas:** {len(st.session_state.provas_geradas)}"
+            )
+            st.markdown(
+                f"- **Taxa de Conclusão Global:** {len(st.session_state.entregas_sistema)} entregas efetuadas."
+            )
+
+        elif "📁 Relatórios" in opcao_menu:
+            st.subheader("📁 Exportação de Dados")
+            df_export = pd.DataFrame(
+                [
+                    {"ID": k, "Nome": v["nome"], "Perfil": v["perfil"]}
+                    for k, v in st.session_state.usuarios_cadastrados.items()
+                ]
+            )
+            csv = df_export.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                "📥 Exportar Lista de Usuários (CSV)",
+                csv,
+                "usuarios_suats.csv",
+                "text/csv",
+            )
+
+        elif "🛡 Auditoria" in opcao_menu:
+            st.subheader("🛡 Logs de Segurança e Auditoria")
+            st.code(
+                f"[{datetime.now().strftime('%Y-%m-%d %H:%M')}] Usuário {st.session_state.usuario_logado} carregou o painel administrativo master."
+            )
+
+        elif "⚙ Configurações" in opcao_menu:
+            st.subheader("⚙ Configurações Gerais do Sistema")
+            st.write(
+                f"Banco de Dados Ativo: **Supabase Cloud Relational (PostgreSQL)**"
+            )
+            st.write(f"Endpoint Conexão: {SUPABASE_URL}")
 
         # ==============================================================================
         # 6. MÓDULO PEDAGÓGICO - PROFESSOR
@@ -1328,373 +1392,373 @@ def salvar_dados_supabase(tabela, dados):
                     "Utilize as opções principais do menu para interagir com a base operacional."
                 )
 
-        # ==============================================================================
-        # 7. MÓDULO DISCENTE - ALUNO
-        # ==============================================================================
-        elif st.session_state.perfil_logado == "Aluno":
+    # ==============================================================================
+    # 7. MÓDULO DISCENTE - ALUNO
+    # ==============================================================================
+    elif st.session_state.perfil_logado == "Aluno":
 
-            aluno_atual = st.session_state.usuario_logado
+        aluno_atual = st.session_state.usuario_logado
 
-            if "🏠 Início" in opcao_menu:
+        if "🏠 Início" in opcao_menu:
 
-                st.subheader("🚀 Central do Aluno")
+            st.subheader("🚀 Central do Aluno")
 
-                st.write(
-                    f"Bem-vindo, **{st.session_state.nome_exibicao}**! "
-                    "Use o menu lateral para acessar suas avaliações."
+            st.write(
+                f"Bem-vindo, **{st.session_state.nome_exibicao}**! "
+                "Use o menu lateral para acessar suas avaliações."
+            )
+
+        elif "📝 Minhas Avaliações" in opcao_menu:
+
+            if aluno_atual in st.session_state.entregas_sistema:
+
+                st.success(
+                    "✅ Avaliação realizada e entregue "
+                    "com sucesso para processamento docente!"
                 )
 
-            elif "📝 Minhas Avaliações" in opcao_menu:
+                st.write("Dados da sua entrega:")
 
-                if aluno_atual in st.session_state.entregas_sistema:
+                st.json(
+                    st.session_state.entregas_sistema[
+                        aluno_atual
+                    ]
+                )
 
-                    st.success(
-                        "✅ Avaliação realizada e entregue "
-                        "com sucesso para processamento docente!"
-                    )
+            elif (
+                aluno_atual
+                not in st.session_state.provas_geradas
+            ):
 
-                    st.write("Dados da sua entrega:")
+                st.warning(
+                    "⚠️ Nenhuma avaliação disponível "
+                    "para o seu usuário neste momento. "
+                    "Aguarde liberação."
+                )
 
-                    st.json(
-                        st.session_state.entregas_sistema[
-                            aluno_atual
-                        ]
-                    )
+            else:
 
-                elif (
-                    aluno_atual
-                    not in st.session_state.provas_geradas
+                prova = (
+                    st.session_state
+                    .provas_geradas[aluno_atual]
+                )
+
+                st.info(
+                    f"📋 Avaliação: "
+                    f"{prova['materia']} | "
+                    f"Tipo: {prova['tipo_prova']}"
+                )
+
+                st.markdown("## 🧪 Prova Online")
+
+                respostas_aluno = []
+
+                for i, q in enumerate(
+                    prova["questoes"]
                 ):
 
-                    st.warning(
-                        "⚠️ Nenhuma avaliação disponível "
-                        "para o seu usuário neste momento. "
-                        "Aguarde liberação."
+                    st.markdown(
+                        f"### Questão {i + 1}"
                     )
 
-                else:
-
-                    prova = (
-                        st.session_state
-                        .provas_geradas[aluno_atual]
+                    tipo_q = q.get(
+                        "tipo",
+                        "multipla_escolha"
                     )
 
-                    st.info(
-                        f"📋 Avaliação: "
-                        f"{prova['materia']} | "
-                        f"Tipo: {prova['tipo_prova']}"
-                    )
-
-                    st.markdown("## 🧪 Prova Online")
-
-                    respostas_aluno = []
-
-                    for i, q in enumerate(
-                        prova["questoes"]
+                    # =================================
+                    # MÚLTIPLA ESCOLHA
+                    # =================================
+                    if (
+                        tipo_q
+                        == "multipla_escolha"
                     ):
+
+                        st.write(
+                            q.get(
+                                "enunciado",
+                                "Questão sem enunciado."
+                            )
+                        )
+
+                        alternativas_dict = q.get(
+                            "alternativas",
+                            {}
+                        )
+
+                        alternativas = list(
+                            alternativas_dict.keys()
+                        )
+
+                        resposta = st.radio(
+                            f"Escolha sua resposta - Q{i+1}",
+                            alternativas,
+                            index=None,
+                            key=f"q_{i}",
+                        )
+
+                        respostas_aluno.append(
+                            resposta
+                        )
+
+                    # =================================
+                    # DISSERTATIVA
+                    # =================================
+                    elif (
+                        tipo_q
+                        == "dissertativa"
+                    ):
+
+                        st.write(
+                            q.get(
+                                "enunciado",
+                                "Questão sem enunciado."
+                            )
+                        )
+
+                        resposta = st.text_area(
+                            f"Resposta da questão {i+1}",
+                            key=f"disc_{i}"
+                        )
+
+                        respostas_aluno.append(
+                            resposta
+                        )
+
+                    # =================================
+                    # ESTUDO DE CASO
+                    # =================================
+                    elif (
+                        tipo_q
+                        == "estudo_caso"
+                    ):
+
+                        empresa = q.get(
+                            "empresa",
+                            "Empresa não informada"
+                        )
+
+                        cenario = q.get(
+                            "cenario",
+                            ""
+                        )
+
+                        desafio = q.get(
+                            "desafio",
+                            ""
+                        )
 
                         st.markdown(
-                            f"### Questão {i + 1}"
+                            f"### 🏢 Empresa: "
+                            f"{empresa}"
                         )
 
-                        tipo_q = q.get(
-                            "tipo",
-                            "multipla_escolha"
+                        st.write(
+                            f"**Cenário:** "
+                            f"{cenario}"
                         )
 
-                        # =================================
-                        # MÚLTIPLA ESCOLHA
-                        # =================================
-                        if (
-                            tipo_q
-                            == "multipla_escolha"
-                        ):
+                        st.write(
+                            f"**Desafio:** "
+                            f"{desafio}"
+                        )
 
-                            st.write(
-                                q.get(
-                                    "enunciado",
-                                    "Questão sem enunciado."
-                                )
-                            )
+                        resposta = st.text_area(
+                            f"Solução proposta - Q{i+1}",
+                            key=f"case_{i}"
+                        )
 
-                            alternativas_dict = q.get(
-                                "alternativas",
-                                {}
-                            )
+                        respostas_aluno.append(
+                            resposta
+                        )
 
-                            alternativas = list(
-                                alternativas_dict.keys()
-                            )
+                st.markdown("---")
 
-                            resposta = st.radio(
-                                f"Escolha sua resposta - Q{i+1}",
-                                alternativas,
-                                index=None,
-                                key=f"q_{i}",
-                            )
+                st.markdown(
+                    "#### 📤 Finalização da Prova"
+                )
 
-                            respostas_aluno.append(
-                                resposta
-                            )
-
-                        # =================================
-                        # DISSERTATIVA
-                        # =================================
-                        elif (
-                            tipo_q
-                            == "dissertativa"
-                        ):
-
-                            st.write(
-                                q.get(
-                                    "enunciado",
-                                    "Questão sem enunciado."
-                                )
-                            )
-
-                            resposta = st.text_area(
-                                f"Resposta da questão {i+1}",
-                                key=f"disc_{i}"
-                            )
-
-                            respostas_aluno.append(
-                                resposta
-                            )
-
-                        # =================================
-                        # ESTUDO DE CASO
-                        # =================================
-                        elif (
-                            tipo_q
-                            == "estudo_caso"
-                        ):
-
-                            empresa = q.get(
-                                "empresa",
-                                "Empresa não informada"
-                            )
-
-                            cenario = q.get(
-                                "cenario",
-                                ""
-                            )
-
-                            desafio = q.get(
-                                "desafio",
-                                ""
-                            )
-
-                            st.markdown(
-                                f"### 🏢 Empresa: "
-                                f"{empresa}"
-                            )
-
-                            st.write(
-                                f"**Cenário:** "
-                                f"{cenario}"
-                            )
-
-                            st.write(
-                                f"**Desafio:** "
-                                f"{desafio}"
-                            )
-
-                            resposta = st.text_area(
-                                f"Solução proposta - Q{i+1}",
-                                key=f"case_{i}"
-                            )
-
-                            respostas_aluno.append(
-                                resposta
-                            )
-
-                    st.markdown("---")
-
-                    st.markdown(
-                        "#### 📤 Finalização da Prova"
+                arquivo_submetido = (
+                    st.file_uploader(
+                        "Arraste e solte o arquivo "
+                        "da sua prova resolvida "
+                        "aqui (Excel, PDF ou TXT):",
+                        type=[
+                            "txt",
+                            "xlsx",
+                            "pdf"
+                        ],
                     )
+                )
 
-                    arquivo_submetido = (
-                        st.file_uploader(
-                            "Arraste e solte o arquivo "
-                            "da sua prova resolvida "
-                            "aqui (Excel, PDF ou TXT):",
-                            type=[
-                                "txt",
-                                "xlsx",
-                                "pdf"
-                            ],
-                        )
-                    )
+                if (
+                    arquivo_submetido
+                    is not None
+                ):
 
-                    if (
-                        arquivo_submetido
-                        is not None
+                    if st.button(
+                        "Finalizar e Enviar "
+                        "Avaliação Definitiva"
                     ):
 
-                        if st.button(
-                            "Finalizar e Enviar "
-                            "Avaliação Definitiva"
+                        # ======================
+                        # SALVA ENTREGA
+                        # ======================
+                        st.session_state[
+                            "entregas_sistema"
+                        ][aluno_atual] = {
+                            "materia": prova[
+                                "materia"
+                            ],
+                            "status": "Enviado",
+                            "data_entrega": (
+                                datetime.now()
+                                .strftime(
+                                    "%d/%m/%Y %H:%M:%S"
+                                )
+                            ),
+                            "arquivo_nome": (
+                                arquivo_submetido.name
+                            ),
+                        }
+
+                        # ======================
+                        # CORREÇÃO AUTOMÁTICA
+                        # SOMENTE OBJETIVAS
+                        # ======================
+                        st.markdown(
+                            "### 🤖 Corrigindo prova..."
+                        )
+
+                        acertos = 0
+                        total_objetivas = 0
+                        feedback = []
+
+                        for i, q in enumerate(
+                            prova["questoes"]
                         ):
 
-                            # ======================
-                            # SALVA ENTREGA
-                            # ======================
-                            st.session_state[
-                                "entregas_sistema"
-                            ][aluno_atual] = {
-                                "materia": prova[
-                                    "materia"
-                                ],
-                                "status": "Enviado",
-                                "data_entrega": (
-                                    datetime.now()
-                                    .strftime(
-                                        "%d/%m/%Y %H:%M:%S"
-                                    )
-                                ),
-                                "arquivo_nome": (
-                                    arquivo_submetido.name
-                                ),
-                            }
-
-                            # ======================
-                            # CORREÇÃO AUTOMÁTICA
-                            # SOMENTE OBJETIVAS
-                            # ======================
-                            st.markdown(
-                                "### 🤖 Corrigindo prova..."
+                            tipo_q = q.get(
+                                "tipo"
                             )
 
-                            acertos = 0
-                            total_objetivas = 0
-                            feedback = []
-
-                            for i, q in enumerate(
-                                prova["questoes"]
+                            if (
+                                tipo_q
+                                == "multipla_escolha"
                             ):
 
-                                tipo_q = q.get(
-                                    "tipo"
+                                total_objetivas += 1
+
+                                resposta_aluno = (
+                                    respostas_aluno[i]
+                                )
+
+                                resposta_correta = (
+                                    q.get(
+                                        "resposta_correta"
+                                    )
                                 )
 
                                 if (
-                                    tipo_q
-                                    == "multipla_escolha"
+                                    resposta_aluno
+                                    == resposta_correta
                                 ):
 
-                                    total_objetivas += 1
+                                    acertos += 1
 
-                                    resposta_aluno = (
-                                        respostas_aluno[i]
+                                    feedback.append(
+                                        f"✔ Questão "
+                                        f"{i+1}: Correta"
                                     )
 
-                                    resposta_correta = (
-                                        q.get(
-                                            "resposta_correta"
-                                        )
+                                else:
+
+                                    feedback.append(
+                                        f"❌ Questão "
+                                        f"{i+1}: Errada"
                                     )
 
-                                    if (
-                                        resposta_aluno
-                                        == resposta_correta
-                                    ):
+                        # Nota automática
+                        if total_objetivas > 0:
 
-                                        acertos += 1
+                            nota_final = round(
+                                (
+                                    acertos
+                                    / total_objetivas
+                                ) * 10,
+                                2,
+                            )
 
-                                        feedback.append(
-                                            f"✔ Questão "
-                                            f"{i+1}: Correta"
-                                        )
+                        else:
 
-                                    else:
+                            nota_final = (
+                                "Correção Manual"
+                            )
 
-                                        feedback.append(
-                                            f"❌ Questão "
-                                            f"{i+1}: Errada"
-                                        )
+                        # ======================
+                        # SALVA NOTA
+                        # ======================
+                        st.session_state[
+                            "entregas_sistema"
+                        ][aluno_atual][
+                            "nota"
+                        ] = nota_final
 
-                            # Nota automática
-                            if total_objetivas > 0:
+                        st.session_state[
+                            "entregas_sistema"
+                        ][aluno_atual][
+                            "feedback"
+                        ] = feedback
 
-                                nota_final = round(
-                                    (
-                                        acertos
-                                        / total_objetivas
-                                    ) * 10,
-                                    2,
-                                )
+                        # ======================
+                        # SALVA NO SUPABASE
+                        # ======================
+                        if salvar_dados_supabase(
+                            "entregas",
+                            st.session_state
+                            .entregas_sistema
+                        ):
 
-                            else:
+                            st.success(
+                                f"✅ Avaliação enviada! "
+                                f"Resultado: "
+                                f"{nota_final}"
+                            )
 
-                                nota_final = (
-                                    "Correção Manual"
-                                )
+                            st.rerun()
 
-                            # ======================
-                            # SALVA NOTA
-                            # ======================
-                            st.session_state[
-                                "entregas_sistema"
-                            ][aluno_atual][
-                                "nota"
-                            ] = nota_final
+        elif opcao_menu in [
+            "📥 Downloads",
+            "📤 Upload",
+            "📈 Histórico",
+            "💬 Feedbacks",
+        ]:
 
-                            st.session_state[
-                                "entregas_sistema"
-                            ][aluno_atual][
-                                "feedback"
-                            ] = feedback
+            st.info(
+                "Acesse a aba "
+                "'Minhas Avaliações' "
+                "para interagir com "
+                "os arquivos de exames."
+            )
 
-                            # ======================
-                            # SALVA NO SUPABASE
-                            # ======================
-                            if salvar_dados_supabase(
-                                "entregas",
-                                st.session_state
-                                .entregas_sistema
-                            ):
-
-                                st.success(
-                                    f"✅ Avaliação enviada! "
-                                    f"Resultado: "
-                                    f"{nota_final}"
-                                )
-
-                                st.rerun()
-
-            elif opcao_menu in [
-                "📥 Downloads",
-                "📤 Upload",
-                "📈 Histórico",
-                "💬 Feedbacks",
-            ]:
-
-                st.info(
-                    "Acesse a aba "
-                    "'Minhas Avaliações' "
-                    "para interagir com "
-                    "os arquivos de exames."
+    # ======================================================================
+    # 8. MÓDULO COMPLEMENTAR - COORDENADOR
+    # ======================================================================
+    elif st.session_state.perfil_logado == "Coordenador":
+        if "🏠 Dashboard" in opcao_menu:
+            st.subheader("📊 Painel de Acompanhamento Pedagógico (Coordenação)")
+            if len(st.session_state.provas_geradas) > 0:
+                df_coord = pd.DataFrame(
+                    [
+                        {"Aluno ID": k, **v}
+                        for k, v in st.session_state.provas_geradas.items()
+                    ]
                 )
-
-        # ======================================================================
-        # 8. MÓDULO COMPLEMENTAR - COORDENADOR
-        # ======================================================================
-        elif st.session_state.perfil_logado == "Coordenador":
-            if "🏠 Dashboard" in opcao_menu:
-                st.subheader("📊 Painel de Acompanhamento Pedagógico (Coordenação)")
-                if len(st.session_state.provas_geradas) > 0:
-                    df_coord = pd.DataFrame(
-                        [
-                            {"Aluno ID": k, **v}
-                            for k, v in st.session_state.provas_geradas.items()
-                        ]
-                    )
-                    st.dataframe(df_coord, use_container_width=True, hide_index=True)
-                else:
-                    st.info("Nenhum dado de avaliação disponível para monitoramento.")
+                st.dataframe(df_coord, use_container_width=True, hide_index=True)
             else:
-                st.info("Navegue utilizando os menus ativos da coordenação técnica.")
+                st.info("Nenhum dado de avaliação disponível para monitoramento.")
+        else:
+            st.info("Navegue utilizando os menus ativos da coordenação técnica.")
 
-        st.markdown("---")
-        st.write("Backup estável - SUATS funcional com Supabase")
+    st.markdown("---")
+    st.write("Backup estável - SUATS funcional com Supabase")
