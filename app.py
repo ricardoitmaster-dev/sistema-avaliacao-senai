@@ -354,6 +354,319 @@ Formato:
         ]
     
 # ==============================================================================
+# GERADOR PROFISSIONAL DE AVALIAÇÃO EXCEL SENAI
+# ==============================================================================
+
+def gerar_prova_excel_profissional(
+    nome_aluno,
+    curso,
+    materia,
+    turma,
+    nivel_dificuldade="Intermediário"
+):
+
+    import io
+    import hashlib
+    import random
+
+    # ==========================================================
+    # SEED ÚNICA POR ALUNO
+    # ==========================================================
+    seed = int(
+        hashlib.md5(
+            nome_aluno.encode()
+        ).hexdigest(),
+        16
+    ) % 10000
+
+    random.seed(seed)
+
+    # ==========================================================
+    # BASE DE PRODUTOS
+    # ==========================================================
+    itens = [
+        "Notebook",
+        "Mouse Gamer",
+        "Teclado Mecânico",
+        "Monitor LED",
+        "Impressora Laser",
+        "SSD 1TB",
+        "Memória RAM",
+        "Placa de Vídeo",
+        "Servidor Dell",
+        "Switch Cisco"
+    ]
+
+    categorias = [
+        "Hardware",
+        "Periféricos",
+        "Periféricos",
+        "Hardware",
+        "Impressão",
+        "Armazenamento",
+        "Hardware",
+        "Hardware",
+        "Infraestrutura",
+        "Redes"
+    ]
+
+    precos = [
+        3500.0,
+        180.0,
+        450.0,
+        1200.0,
+        900.0,
+        650.0,
+        380.0,
+        4200.0,
+        12000.0,
+        2500.0
+    ]
+
+    df_apoio = pd.DataFrame({
+        "ID_Produto": range(1, 11),
+        "Produto": itens,
+        "Categoria": categorias,
+        "Preço Base": precos
+    })
+
+    # ==========================================================
+    # DEFINIÇÃO DE DIFICULDADE
+    # ==========================================================
+    if nivel_dificuldade == "Básico":
+        qtd_registros = 20
+
+    elif nivel_dificuldade == "Avançado":
+        qtd_registros = 60
+
+    else:
+        qtd_registros = 40
+
+    # ==========================================================
+    # GERA BASE PRINCIPAL
+    # ==========================================================
+    dados = []
+
+    for i in range(1, qtd_registros + 1):
+
+        id_produto = random.randint(1, 10)
+
+        quantidade = random.randint(1, 20)
+
+        dados.append({
+            "Pedido": i,
+            "Data Venda": "",
+            "ID Produto": id_produto,
+            "Produto (PROCV)": "",
+            "Categoria": "",
+            "Quantidade": quantidade,
+            "Preço Unitário (PROCV)": "",
+            "Subtotal": "",
+            "Desconto %": "",
+            "Valor Desconto": "",
+            "Total Líquido": "",
+            "Status Meta (SE)": ""
+        })
+
+    df_base = pd.DataFrame(dados)
+
+    # ==========================================================
+    # RESUMO GERENCIAL
+    # ==========================================================
+    df_resumo = pd.DataFrame({
+        "Indicador": [
+            "Faturamento Bruto",
+            "Média de Vendas",
+            "Maior Venda",
+            "Menor Venda",
+            "Total Hardware",
+            "Pedidos Acima da Meta",
+            "Total de Produtos",
+            "Faturamento Infraestrutura"
+        ],
+
+        "Objetivo": [
+            "Aplicar SOMA",
+            "Aplicar MÉDIA",
+            "Aplicar MÁXIMO",
+            "Aplicar MÍNIMO",
+            "Aplicar SOMASE",
+            "Aplicar CONT.SE",
+            "Aplicar CONT.VALORES",
+            "Aplicar SOMASE"
+        ],
+
+        "Resultado": [""] * 8
+    })
+
+    # ==========================================================
+    # INSTRUÇÕES DA PROVA
+    # ==========================================================
+    instrucoes = [
+
+        ["AVALIAÇÃO TÉCNICA PROFISSIONAL - SENAI"],
+
+        [f"Curso: {curso}"],
+
+        [f"Disciplina: {materia}"],
+
+        [f"Turma: {turma}"],
+
+        [f"Nível: {nivel_dificuldade}"],
+
+        [""],
+
+        ["REQUISITOS OBRIGATÓRIOS"],
+
+        ["1. Preencher Data Venda utilizando ALEATORIOENTRE."],
+
+        ["2. Aplicar PROCV para Produto e Preço Unitário."],
+
+        ["3. Aplicar SOMA, MÉDIA, MÁXIMO e MÍNIMO."],
+
+        ["4. Aplicar SOMASE e CONT.SE."],
+
+        ["5. Calcular Subtotal e Total Líquido."],
+
+        ["6. Aplicar regra lógica utilizando função SE."],
+
+        ["7. Criar no mínimo 2 gráficos."],
+
+        ["8. Criar 1 tabela dinâmica."],
+
+        ["9. Aplicar formatação profissional."],
+
+        ["10. Salvar o arquivo final corretamente."],
+
+        [""] ,
+
+        ["CRITÉRIOS DE AVALIAÇÃO"],
+
+        ["✔ Organização"],
+
+        ["✔ Estruturação"],
+
+        ["✔ Fórmulas"],
+
+        ["✔ Lógica aplicada"],
+
+        ["✔ Dashboard"],
+
+        ["✔ Tabela dinâmica"],
+
+        ["✔ Gráficos"],
+
+        ["✔ Profissionalismo técnico"]
+    ]
+
+    df_instrucao = pd.DataFrame(instrucoes)
+
+    # ==========================================================
+    # DASHBOARD BASE
+    # ==========================================================
+    df_dashboard = pd.DataFrame({
+        "Métrica": [
+            "Meta Mensal",
+            "Faturamento Atual",
+            "Total Pedidos",
+            "Ticket Médio"
+        ],
+
+        "Valor": [
+            50000,
+            "",
+            "",
+            ""
+        ]
+    })
+
+    # ==========================================================
+    # EXPORTAÇÃO XLSX
+    # ==========================================================
+    output = io.BytesIO()
+
+    with pd.ExcelWriter(
+        output,
+        engine="xlsxwriter"
+    ) as writer:
+
+        df_base.to_excel(
+            writer,
+            sheet_name="Base_Dados",
+            index=False
+        )
+
+        df_apoio.to_excel(
+            writer,
+            sheet_name="Apoio_Matriz",
+            index=False
+        )
+
+        df_resumo.to_excel(
+            writer,
+            sheet_name="Resumo_Gerencial",
+            index=False
+        )
+
+        df_instrucao.to_excel(
+            writer,
+            sheet_name="Instrucoes",
+            index=False,
+            header=False
+        )
+
+        df_dashboard.to_excel(
+            writer,
+            sheet_name="Dashboard",
+            index=False
+        )
+
+        workbook = writer.book
+
+        formato_titulo = workbook.add_format({
+            "bold": True,
+            "font_color": "white",
+            "bg_color": "#002366",
+            "border": 1,
+            "align": "center"
+        })
+
+        # ======================================================
+        # FORMATA CABEÇALHOS
+        # ======================================================
+        abas_dataframes = {
+            "Base_Dados": df_base,
+            "Apoio_Matriz": df_apoio,
+            "Resumo_Gerencial": df_resumo,
+            "Dashboard": df_dashboard
+        }
+
+        for aba, dataframe in abas_dataframes.items():
+
+            worksheet = writer.sheets[aba]
+
+            for col_num, value in enumerate(
+                dataframe.columns.values
+            ):
+
+                worksheet.write(
+                    0,
+                    col_num,
+                    value,
+                    formato_titulo
+                )
+
+            worksheet.set_column(
+                0,
+                20,
+                28
+            )
+
+    output.seek(0)
+
+    return output.getvalue()
+    
+# ==============================================================================
 # 2. CONFIGURAÇÃO E CONEXÃO SEGURA AO SUPABASE (SQL NA NUVEM)
 # ==============================================================================
 
