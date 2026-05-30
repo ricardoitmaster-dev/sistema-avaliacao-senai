@@ -1862,68 +1862,170 @@ else:
     # ==============================================================================
     elif st.session_state.perfil_logado == "Aluno":
 
-        aluno_atual = st.session_state.usuario_logado
+        import base64
 
+        aluno_atual = (
+            st.session_state.usuario_logado
+        )
+
+        # ==========================================================
+        # INÍCIO
+        # ==========================================================
         if "🏠 Início" in opcao_menu:
 
-            st.subheader("🚀 Central do Aluno")
-
-            st.write(
-                f"Bem-vindo, **{st.session_state.nome_exibicao}**! "
-                "Use o menu lateral para acessar suas avaliações."
+            st.subheader(
+                "🚀 Central do Aluno"
             )
 
+            st.write(
+                f"Bem-vindo, "
+                f"**{st.session_state.nome_exibicao}**!"
+            )
+
+            st.info(
+                "Utilize o menu lateral "
+                "para acessar suas avaliações."
+            )
+
+        # ==========================================================
+        # MINHAS AVALIAÇÕES
+        # ==========================================================
         elif "📝 Minhas Avaliações" in opcao_menu:
 
-            if aluno_atual in st.session_state.entregas_sistema:
-
-                st.success(
-                    "✅ Avaliação realizada e entregue "
-                    "com sucesso para processamento docente!"
+            provas = (
+                st.session_state
+                .get(
+                    "provas_geradas",
+                    {}
                 )
+            )
 
-                st.write("Dados da sua entrega:")
-
-                st.json(
-                    st.session_state.entregas_sistema[
-                        aluno_atual
-                    ]
-                )
-
-            elif (
-                aluno_atual
-                not in st.session_state.provas_geradas
-            ):
+            if aluno_atual not in provas:
 
                 st.warning(
-                    "⚠️ Nenhuma avaliação disponível "
-                    "para o seu usuário neste momento. "
-                    "Aguarde liberação."
+                    "⚠️ Nenhuma avaliação "
+                    "liberada para você "
+                    "neste momento."
                 )
 
             else:
 
-                prova = (
-                    st.session_state
-                    .provas_geradas[aluno_atual]
+                prova = provas[
+                    aluno_atual
+                ]
+
+                st.success(
+                    "✅ Avaliação encontrada!"
                 )
 
                 st.info(
-                    f"📋 Avaliação: "
-                    f"{prova['materia']} | "
-                    f"Tipo: {prova['tipo_prova']}"
+                    f"📘 Disciplina: "
+                    f"{prova.get('materia', '-')}"
                 )
 
-                st.markdown("## 🧪 Prova Online")
+                st.write(
+                    f"**Curso:** "
+                    f"{prova.get('curso', '-')}"
+                )
+
+                st.write(
+                    f"**Turma:** "
+                    f"{prova.get('turma', '-')}"
+                )
+
+                st.write(
+                    f"**Tipo:** "
+                    f"{prova.get('tipo_prova', '-')}"
+                )
+
+                st.markdown("---")
+
+                # ==================================================
+                # DOWNLOAD EXCEL
+                # ==================================================
+                st.markdown(
+                    "## 📥 Download da Avaliação"
+                )
+
+                arquivo_excel_base64 = (
+                    prova.get(
+                        "arquivo_excel_base64"
+                    )
+                )
+
+                nome_arquivo = (
+                    prova.get(
+                        "nome_arquivo",
+                        "avaliacao.xlsx"
+                    )
+                )
+
+                if arquivo_excel_base64:
+
+                    try:
+
+                        arquivo_excel = (
+                            base64.b64decode(
+                                arquivo_excel_base64
+                            )
+                        )
+
+                        st.download_button(
+                            label=(
+                                "📥 Baixar "
+                                "Arquivo da Prova"
+                            ),
+                            data=arquivo_excel,
+                            file_name=nome_arquivo,
+                            mime=(
+                                "application/"
+                                "vnd.openxmlformats-"
+                                "officedocument."
+                                "spreadsheetml.sheet"
+                            ),
+                            use_container_width=True
+                        )
+
+                        st.success(
+                            "Arquivo disponível "
+                            "para download."
+                        )
+
+                    except Exception as e:
+
+                        st.error(
+                            f"❌ Erro ao abrir "
+                            f"arquivo da prova: {e}"
+                        )
+
+                else:
+
+                    st.warning(
+                        "⚠️ Esta avaliação "
+                        "não possui arquivo "
+                        "Excel anexado."
+                    )
+
+                st.markdown("---")
+
+                # ==================================================
+                # QUESTÕES IA
+                # ==================================================
+                st.markdown(
+                    "## 🧠 Prova Online"
+                )
 
                 respostas_aluno = []
 
                 for i, q in enumerate(
-                    prova["questoes"]
+                    prova.get(
+                        "questoes",
+                        []
+                    )
                 ):
 
                     st.markdown(
-                        f"### Questão {i + 1}"
+                        f"### Questão {i+1}"
                     )
 
                     tipo_q = q.get(
@@ -1931,9 +2033,9 @@ else:
                         "multipla_escolha"
                     )
 
-                    # =================================
+                    # ======================================
                     # MÚLTIPLA ESCOLHA
-                    # =================================
+                    # ======================================
                     if (
                         tipo_q
                         == "multipla_escolha"
@@ -1942,13 +2044,15 @@ else:
                         st.write(
                             q.get(
                                 "enunciado",
-                                "Questão sem enunciado."
+                                "Questão sem texto."
                             )
                         )
 
-                        alternativas_dict = q.get(
-                            "alternativas",
-                            {}
+                        alternativas_dict = (
+                            q.get(
+                                "alternativas",
+                                {}
+                            )
                         )
 
                         alternativas = list(
@@ -1956,19 +2060,20 @@ else:
                         )
 
                         resposta = st.radio(
-                            f"Escolha sua resposta - Q{i+1}",
+                            f"Escolha - "
+                            f"Questão {i+1}",
                             alternativas,
                             index=None,
-                            key=f"q_{i}",
+                            key=f"q_{i}"
                         )
 
                         respostas_aluno.append(
                             resposta
                         )
 
-                    # =================================
+                    # ======================================
                     # DISSERTATIVA
-                    # =================================
+                    # ======================================
                     elif (
                         tipo_q
                         == "dissertativa"
@@ -1977,60 +2082,53 @@ else:
                         st.write(
                             q.get(
                                 "enunciado",
-                                "Questão sem enunciado."
+                                ""
                             )
                         )
 
-                        resposta = st.text_area(
-                            f"Resposta da questão {i+1}",
-                            key=f"disc_{i}"
+                        resposta = (
+                            st.text_area(
+                                f"Resposta "
+                                f"Q{i+1}",
+                                key=f"d_{i}"
+                            )
                         )
 
                         respostas_aluno.append(
                             resposta
                         )
 
-                    # =================================
+                    # ======================================
                     # ESTUDO DE CASO
-                    # =================================
+                    # ======================================
                     elif (
                         tipo_q
                         == "estudo_caso"
                     ):
 
-                        empresa = q.get(
-                            "empresa",
-                            "Empresa não informada"
-                        )
-
-                        cenario = q.get(
-                            "cenario",
-                            ""
-                        )
-
-                        desafio = q.get(
-                            "desafio",
-                            ""
-                        )
-
                         st.markdown(
-                            f"### 🏢 Empresa: "
-                            f"{empresa}"
+                            f"### 🏢 "
+                            f"{q.get('empresa', '-')}"
                         )
 
                         st.write(
-                            f"**Cenário:** "
-                            f"{cenario}"
+                            q.get(
+                                "cenario",
+                                ""
+                            )
                         )
 
                         st.write(
                             f"**Desafio:** "
-                            f"{desafio}"
+                            f"{q.get('desafio', '')}"
                         )
 
-                        resposta = st.text_area(
-                            f"Solução proposta - Q{i+1}",
-                            key=f"case_{i}"
+                        resposta = (
+                            st.text_area(
+                                f"Solução "
+                                f"Q{i+1}",
+                                key=f"c_{i}"
+                            )
                         )
 
                         respostas_aluno.append(
@@ -2039,171 +2137,150 @@ else:
 
                 st.markdown("---")
 
+                # ==================================================
+                # UPLOAD
+                # ==================================================
                 st.markdown(
-                    "#### 📤 Finalização da Prova"
+                    "## 📤 Entrega da Avaliação"
                 )
 
                 arquivo_submetido = (
                     st.file_uploader(
-                        "Arraste e solte o arquivo "
-                        "da sua prova resolvida "
-                        "aqui (Excel, PDF ou TXT):",
+                        "Anexe sua prova "
+                        "resolvida:",
                         type=[
-                            "txt",
                             "xlsx",
-                            "pdf"
-                        ],
+                            "xlsm",
+                            "pdf",
+                            "txt"
+                        ]
                     )
                 )
 
-                if (
-                    arquivo_submetido
-                    is not None
-                ):
+                if arquivo_submetido:
 
                     if st.button(
-                        "Finalizar e Enviar "
-                        "Avaliação Definitiva"
+                        "✅ Finalizar "
+                        "Avaliação"
                     ):
 
-                        # ======================
-                        # SALVA ENTREGA
-                        # ======================
-                        st.session_state[
-                            "entregas_sistema"
-                        ][aluno_atual] = {
-                            "materia": prova[
-                                "materia"
-                            ],
-                            "status": "Enviado",
-                            "data_entrega": (
-                                datetime.now()
-                                .strftime(
-                                    "%d/%m/%Y %H:%M:%S"
-                                )
-                            ),
-                            "arquivo_nome": (
-                                arquivo_submetido.name
-                            ),
-                        }
-
-                        # ======================
-                        # CORREÇÃO AUTOMÁTICA
-                        # SOMENTE OBJETIVAS
-                        # ======================
-                        st.markdown(
-                            "### 🤖 Corrigindo prova..."
-                        )
-
                         acertos = 0
-                        total_objetivas = 0
+                        total = 0
                         feedback = []
 
                         for i, q in enumerate(
-                            prova["questoes"]
+                            prova.get(
+                                "questoes",
+                                []
+                            )
                         ):
 
-                            tipo_q = q.get(
-                                "tipo"
-                            )
-
                             if (
-                                tipo_q
+                                q.get("tipo")
                                 == "multipla_escolha"
                             ):
 
-                                total_objetivas += 1
+                                total += 1
 
-                                resposta_aluno = (
-                                    respostas_aluno[i]
-                                )
-
-                                resposta_correta = (
-                                    q.get(
-                                        "resposta_correta"
-                                    )
+                                correta = q.get(
+                                    "resposta_correta"
                                 )
 
                                 if (
-                                    resposta_aluno
-                                    == resposta_correta
+                                    respostas_aluno[i]
+                                    == correta
                                 ):
 
                                     acertos += 1
 
                                     feedback.append(
                                         f"✔ Questão "
-                                        f"{i+1}: Correta"
+                                        f"{i+1}"
                                     )
 
                                 else:
 
                                     feedback.append(
                                         f"❌ Questão "
-                                        f"{i+1}: Errada"
+                                        f"{i+1}"
                                     )
 
-                        # Nota automática
-                        if total_objetivas > 0:
+                        if total > 0:
 
-                            nota_final = round(
+                            nota = round(
                                 (
                                     acertos
-                                    / total_objetivas
+                                    / total
                                 ) * 10,
-                                2,
+                                2
                             )
 
                         else:
 
-                            nota_final = (
+                            nota = (
                                 "Correção Manual"
                             )
 
-                        # ======================
-                        # SALVA NOTA
-                        # ======================
                         st.session_state[
                             "entregas_sistema"
-                        ][aluno_atual][
-                            "nota"
-                        ] = nota_final
+                        ][aluno_atual] = {
 
-                        st.session_state[
-                            "entregas_sistema"
-                        ][aluno_atual][
-                            "feedback"
-                        ] = feedback
+                            "materia":
+                                prova.get(
+                                    "materia"
+                                ),
 
-                        # ======================
-                        # SALVA NO SUPABASE
-                        # ======================
-                        if salvar_dados_supabase(
+                            "nota":
+                                nota,
+
+                            "feedback":
+                                feedback,
+
+                            "status":
+                                "Enviado",
+
+                            "arquivo":
+                                arquivo_submetido.name,
+
+                            "data_entrega":
+                                datetime.now()
+                                .strftime(
+                                    "%d/%m/%Y %H:%M:%S"
+                                )
+                        }
+
+                        salvar_dados_supabase(
                             "entregas",
-                            st.session_state
-                            .entregas_sistema
-                        ):
+                            st.session_state[
+                                "entregas_sistema"
+                            ]
+                        )
 
-                            st.success(
-                                f"✅ Avaliação enviada! "
-                                f"Resultado: "
-                                f"{nota_final}"
-                            )
+                        st.success(
+                            f"✅ Avaliação "
+                            f"enviada! "
+                            f"Nota: {nota}"
+                        )
 
-                            st.rerun()
+                        st.rerun()
 
+        # ==========================================================
+        # MENU AUXILIAR
+        # ==========================================================
         elif opcao_menu in [
+
             "📥 Downloads",
             "📤 Upload",
             "📈 Histórico",
             "💬 Feedbacks",
+
         ]:
 
             st.info(
-                "Acesse a aba "
-                "'Minhas Avaliações' "
-                "para interagir com "
-                "os arquivos de exames."
+                "Acesse "
+                "'📝 Minhas Avaliações' "
+                "para baixar sua prova "
+                "e realizar envios."
             )
 
     # ======================================================================
