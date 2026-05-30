@@ -3,4 +3,5 @@ pandas
 requests
 supabase
 openpyxl
+xlsxwriter
 google-generativeai>=0.8.5
