@@ -6,6 +6,7 @@ import os
 import sys
 import json
 import random
+import base64
 from datetime import datetime
 
 import streamlit as st
@@ -1676,13 +1677,23 @@ else:
                         # ==========================================
                         # OBJETO DA PROVA
                         # ==========================================
+                        import base64
+
+                        # CONVERTE EXCEL PARA TEXTO BASE64
+                        arquivo_excel_base64 = (
+                            base64.b64encode(
+                                arquivo_excel
+                            ).decode("utf-8")
+                        )
+
                         prova_nova = {
 
                             "questoes":
                                 questoes_geradas,
 
+                            # EXCEL SERIALIZÁVEL
                             "arquivo_excel":
-                                arquivo_excel,
+                                arquivo_excel_base64,
 
                             "nome_arquivo":
                                 (
@@ -1739,7 +1750,7 @@ else:
                         }
 
                         # ==========================================
-                        # SALVA NO SESSION STATE
+                        # SALVA SESSION STATE
                         # ==========================================
                         st.session_state[
                             "provas_geradas"
