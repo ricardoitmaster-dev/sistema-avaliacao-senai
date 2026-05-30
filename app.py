@@ -1691,9 +1691,13 @@ else:
                             "questoes":
                                 questoes_geradas,
 
-                            # EXCEL SERIALIZÁVEL
-                            "arquivo_excel":
-                                arquivo_excel_base64,
+                            # ==================================================
+                            # EXCEL EM BASE64
+                            # ==================================================
+                            "arquivo_excel_base64":
+                                base64.b64encode(
+                                    arquivo_excel
+                                ).decode("utf-8"),
 
                             "nome_arquivo":
                                 (
@@ -1743,8 +1747,7 @@ else:
                                 "Liberada",
 
                             "data_criacao":
-                                datetime.now()
-                                .strftime(
+                                datetime.now().strftime(
                                     "%d/%m/%Y"
                                 ),
                         }
