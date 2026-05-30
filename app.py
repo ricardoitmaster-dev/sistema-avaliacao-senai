@@ -1645,17 +1645,33 @@ else:
                         # ==========================================
                         # GERA EXCEL PROFISSIONAL
                         # ==========================================
-                        arquivo_excel = (
-                            gerar_prova_excel_profissional(
-                                nome_aluno=aluno_alvo,
-                                curso=curso,
-                                materia=materia,
-                                turma=turma,
-                                nivel_dificuldade=(
-                                    nivel_dificuldade
+                        try:
+
+                            arquivo_excel = (
+                                gerar_prova_excel_profissional(
+                                    nome_aluno=str(aluno_alvo),
+                                    curso=str(curso),
+                                    materia=str(materia),
+                                    turma=str(turma),
+                                    nivel_dificuldade=str(
+                                        nivel_dificuldade
+                                    )
                                 )
                             )
-                        )
+
+                            # VALIDAÇÃO DO ARQUIVO
+                            if not arquivo_excel:
+
+                                raise Exception(
+                                    "Arquivo Excel não foi gerado."
+                                )
+
+                        except Exception as erro_excel:
+
+                            raise Exception(
+                                f"Erro ao gerar Excel: "
+                                f"{erro_excel}"
+                            )
 
                         # ==========================================
                         # OBJETO DA PROVA
