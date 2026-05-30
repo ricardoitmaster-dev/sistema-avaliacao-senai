@@ -1611,11 +1611,13 @@ else:
             ):
 
                 if not materia:
+
                     st.warning(
                         "Por favor, informe a disciplina."
                     )
 
                 elif aluno_alvo == "Nenhum aluno cadastrado":
+
                     st.warning(
                         "Nenhum aluno disponível."
                     )
@@ -1624,67 +1626,165 @@ else:
 
                     st.session_state.loading = True
 
-                    questoes_geradas = gerar_questoes_ia(
-                        tema_prova,
-                        contexto_prova,
-                        nivel_dificuldade,
-                        tipo_questao,
-                        num_questoes,
-                        num_alternativas,
-                    )
+                    try:
 
-                    prova_nova = {
-                        "questoes": questoes_geradas,
-                        "area": area,
-                        "curso": curso,
-                        "materia": materia,
-                        "turma": turma,
-                        "unidade": unidade,
-                        "tipo_prova": tipo_prova,
-                        "tipo_questao": tipo_questao,
-                        "origem_questoes": origem_questoes,
-                        "nivel_dificuldade": nivel_dificuldade,
-                        "num_questoes": num_questoes,
-                        "num_alternativas": num_alternativas,
-                        "parametros": params_formulas,
-                        "status": "Liberada",
-                        "data_criacao": datetime.now().strftime("%d/%m/%Y"),
-                    }
-
-                    st.session_state.provas_geradas[
-                        aluno_alvo
-                    ] = prova_nova
-
-                    prova_individual = {
-                        aluno_alvo: prova_nova
-                    }
-
-                    with st.spinner(
-                        "Salvando avaliação..."
-                    ):
-                        resultado = salvar_dados_supabase(
-                            "provas",
-                            prova_individual
+                        # ==========================================
+                        # GERA QUESTÕES IA
+                        # ==========================================
+                        questoes_geradas = (
+                            gerar_questoes_ia(
+                                tema_prova,
+                                contexto_prova,
+                                nivel_dificuldade,
+                                tipo_questao,
+                                num_questoes,
+                                num_alternativas,
+                            )
                         )
 
-                    st.session_state.loading = False
-
-                    if resultado:
-
-                        st.success(
-                            f"✅ Avaliação liberada "
-                            f"com sucesso para "
-                            f"{aluno_alvo}"
+                        # ==========================================
+                        # GERA EXCEL PROFISSIONAL
+                        # ==========================================
+                        arquivo_excel = (
+                            gerar_prova_excel_profissional(
+                                nome_aluno=aluno_alvo,
+                                curso=curso,
+                                materia=materia,
+                                turma=turma,
+                                nivel_dificuldade=(
+                                    nivel_dificuldade
+                                )
+                            )
                         )
 
-                        st.session_state.provas_geradas = (
-                            ler_dados_supabase("provas")
+                        # ==========================================
+                        # OBJETO DA PROVA
+                        # ==========================================
+                        prova_nova = {
+
+                            "questoes":
+                                questoes_geradas,
+
+                            "arquivo_excel":
+                                arquivo_excel,
+
+                            "nome_arquivo":
+                                (
+                                    f"AVALIACAO_"
+                                    f"{materia}_"
+                                    f"{aluno_alvo}"
+                                    ".xlsx"
+                                ),
+
+                            "area":
+                                area,
+
+                            "curso":
+                                curso,
+
+                            "materia":
+                                materia,
+
+                            "turma":
+                                turma,
+
+                            "unidade":
+                                unidade,
+
+                            "tipo_prova":
+                                tipo_prova,
+
+                            "tipo_questao":
+                                tipo_questao,
+
+                            "origem_questoes":
+                                origem_questoes,
+
+                            "nivel_dificuldade":
+                                nivel_dificuldade,
+
+                            "num_questoes":
+                                num_questoes,
+
+                            "num_alternativas":
+                                num_alternativas,
+
+                            "parametros":
+                                params_formulas,
+
+                            "status":
+                                "Liberada",
+
+                            "data_criacao":
+                                datetime.now()
+                                .strftime(
+                                    "%d/%m/%Y"
+                                ),
+                        }
+
+                        # ==========================================
+                        # SALVA NO SESSION STATE
+                        # ==========================================
+                        st.session_state[
+                            "provas_geradas"
+                        ][aluno_alvo] = (
+                            prova_nova
                         )
 
-                    else:
+                        prova_individual = {
+                            aluno_alvo:
+                            prova_nova
+                        }
+
+                        # ==========================================
+                        # SALVA SUPABASE
+                        # ==========================================
+                        with st.spinner(
+                            "Salvando avaliação..."
+                        ):
+
+                            resultado = (
+                                salvar_dados_supabase(
+                                    "provas",
+                                    prova_individual
+                                )
+                            )
+
+                        st.session_state.loading = False
+
+                        if resultado:
+
+                            st.success(
+                                f"✅ Avaliação "
+                                f"liberada com "
+                                f"sucesso para "
+                                f"{aluno_alvo}"
+                            )
+
+                            st.session_state[
+                                "provas_geradas"
+                            ] = (
+                                ler_dados_supabase(
+                                    "provas"
+                                )
+                            )
+
+                        else:
+
+                            st.error(
+                                "❌ Erro ao salvar "
+                                "no Supabase."
+                            )
+
+                    except Exception as e:
+
+                        st.session_state.loading = (
+                            False
+                        )
+
                         st.error(
-                            "❌ Erro ao salvar "
-                            "no Supabase."
+                            f"❌ Erro ao gerar "
+                            f"avaliação: {e}"
                         )
         elif "📚 Banco de Questões" in opcao_menu:
             st.subheader("📚 Banco de Questões Integrado")
