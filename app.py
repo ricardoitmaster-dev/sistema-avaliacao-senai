@@ -2222,9 +2222,7 @@ else:
 
                             else:
 
-                                nota = (
-                                    "Correção Manual"
-                                )
+                                nota = None
 
                             st.session_state[
                                 "entregas_sistema"
