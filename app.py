@@ -1974,6 +1974,14 @@ else:
                     aluno_atual
                 ]
 
+                st.write(
+                    "DEBUG PROVA COMPLETA"
+                )
+
+                st.write(
+                    prova
+                )
+
                 st.success(
                     "✅ Avaliação encontrada!"
                 )
