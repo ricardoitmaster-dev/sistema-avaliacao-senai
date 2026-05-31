@@ -2000,6 +2000,76 @@ else:
 
                 st.markdown("---")
 
+                # ==============================================
+                # RESULTADO DA ENTREGA
+                # ==============================================
+                if (
+                    aluno_atual
+                    in st.session_state.get(
+                        "entregas_sistema",
+                        {}
+                    )
+                ):
+
+                    entrega = (
+                        st.session_state[
+                            "entregas_sistema"
+                        ][aluno_atual]
+                    )
+
+                    st.success(
+                        "✅ Você já enviou "
+                        "esta avaliação."
+                    )
+
+                    st.markdown(
+                        "## 📊 Resultado"
+                    )
+
+                    st.write(
+                        f"**Status:** "
+                        f"{entrega.get('status', '-')}"
+                    )
+
+                    st.write(
+                        f"**Data de Envio:** "
+                        f"{entrega.get('data_entrega', '-')}"
+                    )
+
+                    nota_exibir = (
+                        entrega.get("nota")
+                    )
+
+                    if nota_exibir is None:
+
+                        nota_exibir = (
+                            "Correção Manual"
+                        )
+
+                    st.write(
+                        f"**Nota:** "
+                        f"{nota_exibir}"
+                    )
+
+                    feedback = (
+                        entrega.get(
+                            "feedback",
+                            []
+                        )
+                    )
+
+                    if feedback:
+
+                        st.markdown(
+                            "### 📝 Feedback"
+                        )
+
+                        for item in feedback:
+
+                            st.write(item)
+
+                    st.markdown("---")
+
                 # ==================================================
                 # DOWNLOAD EXCEL
                 # ==================================================
