@@ -2057,6 +2057,9 @@ else:
                             []
                         )
                     )
+                    
+                    st.write("DEBUG FEEDBACK:")
+                    st.write(feedback)
 
                     if feedback:
 
