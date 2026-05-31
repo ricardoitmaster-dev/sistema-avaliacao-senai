@@ -2348,6 +2348,10 @@ else:
                             total = 0
                             feedback = []
 
+                            st.write("========== DEBUG CORREÇÃO ==========")
+                            st.write("Respostas do aluno:")
+                            st.write(respostas_aluno)
+
                             for i, q in enumerate(
                                 prova.get(
                                     "questoes",
@@ -2372,8 +2376,29 @@ else:
                                         "resposta_correta"
                                     )
 
+                                    resposta_aluno = None
+
                                     if (
-                                        respostas_aluno[i]
+                                        i < len(
+                                            respostas_aluno
+                                        )
+                                    ):
+                                        resposta_aluno = (
+                                            respostas_aluno[i]
+                                        )
+
+                                    st.write(
+                                        f"Resposta aluno: "
+                                        f"{resposta_aluno}"
+                                    )
+
+                                    st.write(
+                                        f"Resposta correta: "
+                                        f"{correta}"
+                                    )
+
+                                    if (
+                                        resposta_aluno
                                         == correta
                                     ):
 
@@ -2391,6 +2416,14 @@ else:
                                             f"{i+1}"
                                         )
 
+                            st.write(
+                                f"Total questões: {total}"
+                            )
+
+                            st.write(
+                                f"Acertos: {acertos}"
+                            )
+
                             if total > 0:
 
                                 nota = round(
@@ -2399,6 +2432,11 @@ else:
                                         / total
                                     ) * 10,
                                     2
+                                )
+
+                                st.write(
+                                    f"Nota calculada: "
+                                    f"{nota}"
                                 )
 
                             else:
@@ -2439,6 +2477,16 @@ else:
                                     )
                             }
 
+                            st.write(
+                                "DEBUG ENTREGA:"
+                            )
+
+                            st.write(
+                                st.session_state[
+                                    "entregas_sistema"
+                                ][aluno_atual]
+                            )
+
                             resultado_supabase = (
                                 salvar_dados_supabase(
                                     "entregas",
@@ -2446,6 +2494,11 @@ else:
                                         "entregas_sistema"
                                     ]
                                 )
+                            )
+
+                            st.write(
+                                f"DEBUG SUPABASE: "
+                                f"{resultado_supabase}"
                             )
 
                             if not resultado_supabase:
