@@ -2157,6 +2157,15 @@ else:
                     )
                 ):
 
+                    # ======================================
+                    # DEBUG DA QUESTÃO
+                    # ======================================
+                    st.write(
+                        f"DEBUG EXIBIÇÃO QUESTÃO {i+1}"
+                    )
+
+                    st.write(q)
+
                     st.markdown(
                         f"### Questão {i+1}"
                     )
