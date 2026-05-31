@@ -2167,105 +2167,128 @@ else:
                         "Avaliação"
                     ):
 
-                        acertos = 0
-                        total = 0
-                        feedback = []
+                        try:
 
-                        for i, q in enumerate(
-                            prova.get(
-                                "questoes",
-                                []
-                            )
-                        ):
+                            acertos = 0
+                            total = 0
+                            feedback = []
 
-                            if (
-                                q.get("tipo")
-                                == "multipla_escolha"
+                            for i, q in enumerate(
+                                prova.get(
+                                    "questoes",
+                                    []
+                                )
                             ):
 
-                                total += 1
-
-                                correta = q.get(
-                                    "resposta_correta"
-                                )
-
                                 if (
-                                    respostas_aluno[i]
-                                    == correta
+                                    q.get("tipo")
+                                    == "multipla_escolha"
                                 ):
 
-                                    acertos += 1
+                                    total += 1
 
-                                    feedback.append(
-                                        f"✔ Questão "
-                                        f"{i+1}"
+                                    correta = q.get(
+                                        "resposta_correta"
                                     )
 
-                                else:
+                                    if (
+                                        respostas_aluno[i]
+                                        == correta
+                                    ):
 
-                                    feedback.append(
-                                        f"❌ Questão "
-                                        f"{i+1}"
-                                    )
+                                        acertos += 1
 
-                        if total > 0:
+                                        feedback.append(
+                                            f"✔ Questão "
+                                            f"{i+1}"
+                                        )
 
-                            nota = round(
-                                (
-                                    acertos
-                                    / total
-                                ) * 10,
-                                2
-                            )
+                                    else:
 
-                        else:
+                                        feedback.append(
+                                            f"❌ Questão "
+                                            f"{i+1}"
+                                        )
 
-                            nota = (
-                                "Correção Manual"
-                            )
+                            if total > 0:
 
-                        st.session_state[
-                            "entregas_sistema"
-                        ][aluno_atual] = {
-
-                            "materia":
-                                prova.get(
-                                    "materia"
-                                ),
-
-                            "nota":
-                                nota,
-
-                            "feedback":
-                                feedback,
-
-                            "status":
-                                "Enviado",
-
-                            "arquivo":
-                                arquivo_submetido.name,
-
-                            "data_entrega":
-                                datetime.now()
-                                .strftime(
-                                    "%d/%m/%Y %H:%M:%S"
+                                nota = round(
+                                    (
+                                        acertos
+                                        / total
+                                    ) * 10,
+                                    2
                                 )
-                        }
 
-                        salvar_dados_supabase(
-                            "entregas",
+                            else:
+
+                                nota = (
+                                    "Correção Manual"
+                                )
+
                             st.session_state[
                                 "entregas_sistema"
-                            ]
-                        )
+                            ][aluno_atual] = {
 
-                        st.success(
-                            f"✅ Avaliação "
-                            f"enviada! "
-                            f"Nota: {nota}"
-                        )
+                                "materia":
+                                    prova.get(
+                                        "materia"
+                                    ),
 
-                        st.rerun()
+                                "nota":
+                                    nota,
+
+                                "feedback":
+                                    feedback,
+
+                                "status":
+                                    "Enviado",
+
+                                "arquivo":
+                                    arquivo_submetido.name,
+
+                                "data_entrega":
+                                    datetime.now()
+                                    .strftime(
+                                        "%d/%m/%Y %H:%M:%S"
+                                    )
+                            }
+
+                            resultado_supabase = (
+                                salvar_dados_supabase(
+                                    "entregas",
+                                    st.session_state[
+                                        "entregas_sistema"
+                                    ]
+                                )
+                            )
+
+                            if not resultado_supabase:
+
+                                raise Exception(
+                                    "Falha ao salvar "
+                                    "a entrega no Supabase."
+                                )
+
+                            st.success(
+                                f"✅ Avaliação "
+                                f"enviada! "
+                                f"Nota: {nota}"
+                            )
+
+                            st.rerun()
+
+                        except Exception as e:
+
+                            import traceback
+
+                            st.error(
+                                f"❌ ERRO DETALHADO: {e}"
+                            )
+
+                            st.code(
+                                traceback.format_exc()
+                            )
 
         # ==========================================================
         # MENU AUXILIAR
