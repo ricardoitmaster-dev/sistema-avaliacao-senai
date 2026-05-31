@@ -2351,6 +2351,12 @@ else:
 
                                 nota = None
 
+                                feedback.append(
+                                    "📝 Avaliação enviada "
+                                    "para correção manual "
+                                    "pelo professor."
+                                )
+                                
                             st.session_state[
                                 "entregas_sistema"
                             ][aluno_atual] = {
