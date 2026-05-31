@@ -2307,6 +2307,12 @@ else:
                                 )
                             ):
 
+                                st.write(
+                                    f"DEBUG QUESTÃO {i+1}"
+                                )
+
+                                st.write(q)
+
                                 if (
                                     q.get("tipo")
                                     == "multipla_escolha"
@@ -2356,7 +2362,7 @@ else:
                                     "para correção manual "
                                     "pelo professor."
                                 )
-                                
+
                             st.session_state[
                                 "entregas_sistema"
                             ][aluno_atual] = {
