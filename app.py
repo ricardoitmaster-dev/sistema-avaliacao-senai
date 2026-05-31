@@ -2197,17 +2197,45 @@ else:
                             )
                         )
 
-                        alternativas = list(
-                            alternativas_dict.keys()
-                        )
+                        alternativas = []
 
-                        resposta = st.radio(
+                        mapa_respostas = {}
+
+                        for letra, texto in (
+                            alternativas_dict.items()
+                        ):
+
+                            opcao = (
+                                f"{letra}) {texto}"
+                            )
+
+                            alternativas.append(
+                                opcao
+                            )
+
+                            mapa_respostas[
+                                opcao
+                            ] = letra
+
+                        resposta_escolhida = st.radio(
                             f"Escolha - "
                             f"Questão {i+1}",
                             alternativas,
                             index=None,
                             key=f"q_{i}"
                         )
+
+                        if resposta_escolhida:
+
+                            resposta = (
+                                mapa_respostas[
+                                    resposta_escolhida
+                                ]
+                            )
+
+                        else:
+
+                            resposta = None
 
                         respostas_aluno.append(
                             resposta
