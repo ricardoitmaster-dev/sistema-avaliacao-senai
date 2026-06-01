@@ -2065,9 +2065,14 @@ else:
                             []
                         )
                     )
-                    
-                    st.write("DEBUG FEEDBACK:")
-                    st.write(feedback)
+
+                    st.write(
+                        "DEBUG FEEDBACK:"
+                    )
+
+                    st.write(
+                        feedback
+                    )
 
                     if feedback:
 
@@ -2077,9 +2082,16 @@ else:
 
                         for item in feedback:
 
-                            st.write(item)
+                            st.write(
+                                item
+                            )
 
                     st.markdown("---")
+
+                    # ==========================================
+                    # IMPEDIR REEXIBIÇÃO DA PROVA
+                    # ==========================================
+                    st.stop()
 
                 # ==================================================
                 # DOWNLOAD EXCEL
