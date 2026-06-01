@@ -777,99 +777,94 @@ USUARIOS_PADRAO = {
 
 def ler_dados_supabase(tabela):
     """
-    Busca os dados do Supabase de forma protegida. Se houver falha de credenciais,
-    retorna um dicionário vazio sem travar a renderização das telas do Streamlit.
+    Busca os dados do Supabase de forma protegida.
     """
+
     try:
+
         url = f"{SUPABASE_URL}/rest/v1/{tabela}?select=*"
-        resposta = requests.get(url, headers=HEADERS, timeout=5)
 
-        if resposta.status_code == 200:
-            dados_lista = resposta.json()
-            if not dados_lista:
-                return {}
-
-            resultado = {}
-            if tabela == "usuarios":
-                for item in dados_lista:
-                    u_id = str(item.get("id", "")).strip().lower()
-                    if not u_id:
-                        continue
-                    resultado[u_id] = {
-                        "nome": item.get("nome", u_id),
-                        "senha": item.get("senha", ""),
-                        "perfil": item.get("perfil", "Aluno"),
-                    }
-                return resultado
-
-            elif tabela in ["provas", "entregas"]:
-                for item in dados_lista:
-                    aluno_alvo = str(item.get("id_alvo", "")).strip().lower()
-                    if not aluno_alvo:
-                        continue
-                    resultado[aluno_alvo] = {
-                        k: v for k, v in item.items() if k != "id_alvo"
-                    }
-                return resultado
-        return {}
-    except Exception:
-        return {}
-
-
-def salvar_dados_supabase(tabela, dados):
-    """
-    Salva dados no Supabase com UPSERT estável
-    e exibe erro real caso exista.
-    """
-    try:
-        linhas = []
-
-        if tabela == "usuarios":
-            for k, v in dados.items():
-                linhas.append(
-                    {
-                        "id": k,
-                        "nome": v["nome"],
-                        "senha": v["senha"],
-                        "perfil": v["perfil"],
-                    }
-                )
-
-            chave_conflito = "id"
-
-        elif tabela in ["provas", "entregas"]:
-            for k, v in dados.items():
-                linha = {"id_alvo": k}
-                linha.update(v)
-                linhas.append(linha)
-
-            chave_conflito = "id_alvo"
-
-        else:
-            return False
-
-        if not linhas:
-            return True
-
-        url = f"{SUPABASE_URL}/rest/v1/{tabela}" f"?on_conflict={chave_conflito}"
-
-        headers_upsert = HEADERS.copy()
-        headers_upsert["Prefer"] = (
-            "resolution=merge-duplicates," "return=representation"
+        resposta = requests.get(
+            url,
+            headers=HEADERS,
+            timeout=5
         )
 
-        resposta = requests.post(url, headers=headers_upsert, json=linhas, timeout=15)
+        if resposta.status_code != 200:
+            return {}
 
-        # MOSTRAR O ERRO REAL
-        if resposta.status_code not in [200, 201]:
-            st.error(f"Erro Supabase ({resposta.status_code}): " f"{resposta.text}")
-            return False
+        dados_lista = resposta.json()
 
-        return True
+        if not dados_lista:
+            return {}
+
+        resultado = {}
+
+        # ==================================================
+        # USUÁRIOS
+        # ==================================================
+        if tabela == "usuarios":
+
+            for item in dados_lista:
+
+                u_id = str(
+                    item.get("id", "")
+                ).strip().lower()
+
+                if not u_id:
+                    continue
+
+                resultado[u_id] = {
+                    "nome": item.get("nome", u_id),
+                    "senha": item.get("senha", ""),
+                    "perfil": item.get("perfil", "Aluno"),
+                }
+
+            return resultado
+
+        # ==================================================
+        # PROVAS
+        # ==================================================
+        elif tabela == "provas":
+
+            for item in dados_lista:
+
+                prova_id = str(
+                    item.get("id", "")
+                ).strip()
+
+                if not prova_id:
+                    continue
+
+                resultado[prova_id] = item
+
+            return resultado
+
+        # ==================================================
+        # ENTREGAS
+        # ==================================================
+        elif tabela == "entregas":
+
+            for item in dados_lista:
+
+                entrega_id = str(
+                    item.get("id", "")
+                ).strip()
+
+                if not entrega_id:
+                    continue
+
+                resultado[entrega_id] = item
+
+            return resultado
+
+        return {}
 
     except Exception as e:
-        st.error(f"Erro Python: {str(e)}")
-        return False
+
+        st.error(f"Erro ao ler {tabela}: {e}")
+
+        return {}
 
 
     # ==============================================================================
