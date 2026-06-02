@@ -882,9 +882,18 @@ def salvar_dados_supabase(tabela, dados):
 
     try:
 
-        url = f"{SUPABASE_URL}/rest/v1/{tabela}"
+        if tabela in ["provas", "entregas"]:
 
-        registros = []
+            url = (
+                f"{SUPABASE_URL}/rest/v1/{tabela}"
+                f"?on_conflict=id_alvo"
+            )
+
+        else:
+
+            url = (
+                f"{SUPABASE_URL}/rest/v1/{tabela}"
+            )
 
         # =====================================================
         # USUÁRIOS
@@ -966,9 +975,15 @@ def salvar_dados_supabase(tabela, dados):
                 f"Tabela não suportada: {tabela}"
             )
 
+        headers_upsert = HEADERS.copy()
+
+        headers_upsert["Prefer"] = (
+            "resolution=merge-duplicates"
+        )
+
         resposta = requests.post(
             url,
-            headers=HEADERS,
+            headers=headers_upsert,
             json=registros,
             timeout=10,
         )
