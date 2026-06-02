@@ -777,7 +777,11 @@ USUARIOS_PADRAO = {
 
 def ler_dados_supabase(tabela):
     """
-    Busca os dados do Supabase de forma protegida.
+    Busca os dados do Supabase.
+    Compatível com:
+    - usuarios
+    - provas
+    - entregas
     """
 
     try:
@@ -787,119 +791,242 @@ def ler_dados_supabase(tabela):
         resposta = requests.get(
             url,
             headers=HEADERS,
-            timeout=5
+            timeout=10
         )
 
         if resposta.status_code != 200:
+
+            st.error(
+                f"Erro ao ler {tabela}: "
+                f"{resposta.status_code} - "
+                f"{resposta.text}"
+            )
+
             return {}
 
-        dados_lista = resposta.json()
-
-        if not dados_lista:
-            return {}
+        dados = resposta.json()
 
         resultado = {}
 
-        # ==================================================
+        # =====================================================
         # USUÁRIOS
-        # ==================================================
+        # =====================================================
         if tabela == "usuarios":
 
-            for item in dados_lista:
+            for item in dados:
 
-                u_id = str(
-                    item.get("id", "")
-                ).strip().lower()
+                resultado[
+                    item["id"]
+                ] = {
 
-                if not u_id:
-                    continue
+                    "nome":
+                        item.get(
+                            "nome",
+                            ""
+                        ),
 
-                resultado[u_id] = {
-                    "nome": item.get("nome", u_id),
-                    "senha": item.get("senha", ""),
-                    "perfil": item.get("perfil", "Aluno"),
+                    "senha":
+                        item.get(
+                            "senha",
+                            ""
+                        ),
+
+                    "perfil":
+                        item.get(
+                            "perfil",
+                            "Aluno"
+                        ),
                 }
 
-            return resultado
-
-        # ==================================================
+        # =====================================================
         # PROVAS
-        # ==================================================
+        # =====================================================
         elif tabela == "provas":
 
-            for item in dados_lista:
+            for item in dados:
 
-                prova_id = str(
-                    item.get("id", "")
-                ).strip()
+                resultado[
+                    item["id_alvo"]
+                ] = item
 
-                if not prova_id:
-                    continue
-
-                resultado[prova_id] = item
-
-            return resultado
-
-        # ==================================================
+        # =====================================================
         # ENTREGAS
-        # ==================================================
+        # =====================================================
         elif tabela == "entregas":
 
-            for item in dados_lista:
+            for item in dados:
 
-                entrega_id = str(
-                    item.get("id", "")
-                ).strip()
+                resultado[
+                    item["id_alvo"]
+                ] = item
 
-                if not entrega_id:
-                    continue
-
-                resultado[entrega_id] = item
-
-            return resultado
-
-        return {}
+        return resultado
 
     except Exception as e:
 
-        st.error(f"Erro ao ler {tabela}: {e}")
+        st.error(
+            f"Erro ao carregar "
+            f"{tabela}: {e}"
+        )
 
         return {}
 
+def salvar_dados_supabase(tabela, dados):
+    """
+    Salva dados no Supabase.
+    Compatível com:
+    - usuarios
+    - provas
+    - entregas
+    """
 
-    # ==============================================================================
-    # 2. CONTROLE DE ESTADO DA SESSÃO E INICIALIZAÇÃO DE VARIÁVEIS
-    # ==============================================================================
-    # --- INICIALIZAÇÃO SEGURA DO ESTADO ---
-    # Garante que as variáveis existam imediatamente
-    if "loading" not in st.session_state:
-        st.session_state.loading = False
-    if "usuario_logado" not in st.session_state:
-        st.session_state.usuario_logado = None
-    if "perfil_logado" not in st.session_state:
-        st.session_state.perfil_logado = None
-    if "nome_exibicao" not in st.session_state:
-        st.session_state.nome_exibicao = None
-    # --------------------------------------
+    try:
 
-    # Sincronização Dinâmica estável pós-autenticação
-    if st.session_state.usuario_logado is not None:
-        if (
-            "usuarios_cadastrados" not in st.session_state
-            or not st.session_state.usuarios_cadastrados
-        ):
-            dados_usuarios = ler_dados_supabase("usuarios")
-            st.session_state.usuarios_cadastrados = (
-                dados_usuarios if dados_usuarios else USUARIOS_PADRAO
+        url = f"{SUPABASE_URL}/rest/v1/{tabela}"
+
+        registros = []
+
+        # =====================================================
+        # USUÁRIOS
+        # =====================================================
+        if tabela == "usuarios":
+
+            for usuario_id, info in dados.items():
+
+                registros.append(
+                    {
+                        "id": usuario_id,
+                        "nome": info.get("nome", ""),
+                        "senha": info.get("senha", ""),
+                        "perfil": info.get("perfil", "Aluno"),
+                    }
+                )
+
+        # =====================================================
+        # PROVAS
+        # =====================================================
+        elif tabela == "provas":
+
+            for aluno_id, info in dados.items():
+
+                registros.append(
+                    {
+                        "id_alvo": aluno_id,
+                        "area": info.get("area"),
+                        "curso": info.get("curso"),
+                        "materia": info.get("materia"),
+                        "turma": info.get("turma"),
+                        "unidade": info.get("unidade"),
+                        "tipo_prova": info.get("tipo_prova"),
+                        "tipo_questao": info.get("tipo_questao"),
+                        "origem_questoes": info.get("origem_questoes"),
+                        "nivel_dificuldade": info.get("nivel_dificuldade"),
+                        "questoes": info.get("questoes"),
+                        "parametros": info.get("parametros"),
+                        "status": info.get("status"),
+                        "data_criacao": info.get("data_criacao"),
+                        "num_questoes": info.get("num_questoes"),
+                        "num_alternativas": info.get("num_alternativas"),
+                        "arquivo_excel_base64": info.get(
+                            "arquivo_excel_base64"
+                        ),
+                        "nome_arquivo": info.get("nome_arquivo"),
+                        "aluno_alvo": aluno_id,
+                    }
+                )
+
+        # =====================================================
+        # ENTREGAS
+        # =====================================================
+        elif tabela == "entregas":
+
+            for aluno_id, info in dados.items():
+
+                registros.append(
+                    {
+                        "id_alvo": aluno_id,
+                        "materia": info.get("materia"),
+                        "status": info.get("status"),
+                        "nota": info.get("nota"),
+                        "data_entrega": info.get(
+                            "data_entrega"
+                        ),
+                        "arquivo": info.get("arquivo"),
+                        "arquivo_nome": info.get("arquivo"),
+                        "feedback": info.get(
+                            "feedback",
+                            []
+                        ),
+                    }
+                )
+
+        else:
+
+            raise Exception(
+                f"Tabela não suportada: {tabela}"
             )
-        if "provas_geradas" not in st.session_state:
-            st.session_state.provas_geradas = ler_dados_supabase("provas")
-        if "entregas_sistema" not in st.session_state:
-            st.session_state.entregas_sistema = ler_dados_supabase("entregas")
-    else:
-        st.session_state.usuarios_cadastrados = USUARIOS_PADRAO
-        st.session_state.provas_geradas = {}
-        st.session_state.entregas_sistema = {}
+
+        resposta = requests.post(
+            url,
+            headers=HEADERS,
+            json=registros,
+            timeout=10,
+        )
+
+        if resposta.status_code in [200, 201]:
+
+            return True
+
+        st.error(
+            f"Erro Supabase ({tabela}): "
+            f"{resposta.status_code} - "
+            f"{resposta.text}"
+        )
+
+        return False
+
+    except Exception as e:
+
+        st.error(
+            f"Erro ao salvar em {tabela}: {e}"
+        )
+
+        return False
+
+
+# ==============================================================================
+# 2. CONTROLE DE ESTADO DA SESSÃO E INICIALIZAÇÃO DE VARIÁVEIS
+# ==============================================================================
+# --- INICIALIZAÇÃO SEGURA DO ESTADO ---
+# Garante que as variáveis existam imediatamente
+if "loading" not in st.session_state:
+    st.session_state.loading = False
+if "usuario_logado" not in st.session_state:
+    st.session_state.usuario_logado = None
+if "perfil_logado" not in st.session_state:
+    st.session_state.perfil_logado = None
+if "nome_exibicao" not in st.session_state:
+    st.session_state.nome_exibicao = None
+# --------------------------------------
+
+# Sincronização Dinâmica estável pós-autenticação
+if st.session_state.usuario_logado is not None:
+    if (
+        "usuarios_cadastrados" not in st.session_state
+        or not st.session_state.usuarios_cadastrados
+    ):
+        dados_usuarios = ler_dados_supabase("usuarios")
+        st.session_state.usuarios_cadastrados = (
+            dados_usuarios if dados_usuarios else USUARIOS_PADRAO
+        )
+    if "provas_geradas" not in st.session_state:
+        st.session_state.provas_geradas = ler_dados_supabase("provas")
+    if "entregas_sistema" not in st.session_state:
+        st.session_state.entregas_sistema = ler_dados_supabase("entregas")
+else:
+    st.session_state.usuarios_cadastrados = USUARIOS_PADRAO
+    st.session_state.provas_geradas = {}
+    st.session_state.entregas_sistema = {}
 
 # ==============================================================================
 # 3. INTERFACE VISUAL CORPORATIVA (BMW Portinari Blue, Dourado e Brilhante)
